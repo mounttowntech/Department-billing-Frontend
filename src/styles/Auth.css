@@ -1,0 +1,419 @@
+/* ============================================
+   BillingPro — Auth Theme Tokens
+   Derived from the dashboard: deep maroon sidebar,
+   warm cream header, gold accent, white cards.
+   ============================================ */
+
+:root {
+    --bp-maroon-900: #4a0f18;
+    --bp-maroon-800: #5c1420;
+    --bp-maroon-700: #6e1826;
+    --bp-gold-500: #d4a94a;
+    --bp-gold-600: #c9992e;
+    --bp-cream-100: #fdf3dc;
+    --bp-cream-50: #fffaf0;
+    --bp-ink-900: #2a1418;
+    --bp-ink-600: #6b5a5e;
+    --bp-line: #ecdfc6;
+    --bp-success: #1c9a6c;
+    --bp-danger: #c23b3b;
+    --bp-radius: 16px;
+    --bp-shadow: 0 20px 50px -20px rgba(74, 15, 24, 0.35);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    color: var(--bp-ink-900);
+    background: var(--bp-cream-50);
+}
+
+.bp-auth-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 900px) {
+    .bp-auth-shell {
+        grid-template-columns: 1fr;
+    }
+    .bp-auth-brandpanel {
+        display: none;
+    }
+}
+
+
+/* Left brand panel — mirrors the dashboard sidebar */
+
+.bp-auth-brandpanel {
+    background: linear-gradient(165deg, var(--bp-maroon-900) 0%, var(--bp-maroon-700) 100%);
+    color: #fff;
+    padding: 56px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+}
+
+.bp-auth-brandpanel::after {
+    content: '';
+    position: absolute;
+    inset: auto -20% -30% auto;
+    width: 480px;
+    height: 480px;
+    background: radial-gradient(circle, rgba(212, 169, 74, 0.16) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.bp-brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.bp-brand-logo-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--bp-gold-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.bp-brand-logo-text h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.bp-brand-logo-text span {
+    font-size: 12.5px;
+    color: rgba(255, 255, 255, 0.65);
+    letter-spacing: 0.02em;
+}
+
+.bp-brand-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 380px;
+}
+
+.bp-brand-copy h2 {
+    font-size: 32px;
+    line-height: 1.25;
+    font-weight: 700;
+    margin: 0 0 14px;
+}
+
+.bp-brand-copy p {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.bp-brand-stats {
+    display: flex;
+    gap: 28px;
+    margin-top: 40px;
+    position: relative;
+    z-index: 1;
+}
+
+.bp-brand-stat .num {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--bp-gold-500);
+}
+
+.bp-brand-stat .label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 2px;
+}
+
+.bp-brand-footer {
+    font-size: 12.5px;
+    color: rgba(255, 255, 255, 0.45);
+    position: relative;
+    z-index: 1;
+}
+
+
+/* Right form panel */
+
+.bp-auth-formpanel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    background: var(--bp-cream-50);
+}
+
+.bp-auth-card {
+    width: 100%;
+    max-width: 400px;
+}
+
+.bp-auth-card-mobile-logo {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+}
+
+@media (max-width: 900px) {
+    .bp-auth-card-mobile-logo {
+        display: flex;
+    }
+    .bp-auth-card-mobile-logo .bp-brand-logo-mark {
+        width: 38px;
+        height: 38px;
+        font-size: 18px;
+    }
+    .bp-auth-card-mobile-logo h1 {
+        color: var(--bp-maroon-900);
+        font-size: 17px;
+        margin: 0;
+    }
+}
+
+.bp-auth-eyebrow {
+    color: var(--bp-gold-600);
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 8px;
+}
+
+.bp-auth-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--bp-maroon-900);
+    margin: 0 0 8px;
+}
+
+.bp-auth-subtitle {
+    font-size: 14.5px;
+    color: var(--bp-ink-600);
+    margin: 0 0 32px;
+    line-height: 1.5;
+}
+
+.bp-form-group {
+    margin-bottom: 18px;
+}
+
+.bp-form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bp-ink-900);
+    margin-bottom: 6px;
+}
+
+.bp-input-wrap {
+    position: relative;
+}
+
+.bp-input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--bp-ink-600);
+    font-size: 15px;
+    pointer-events: none;
+}
+
+.bp-form-input {
+    width: 100%;
+    padding: 12px 14px 12px 40px;
+    border: 1.5px solid var(--bp-line);
+    border-radius: 10px;
+    font-size: 14.5px;
+    background: #fff;
+    color: var(--bp-ink-900);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bp-form-input::placeholder {
+    color: #b9a8ac;
+}
+
+.bp-form-input:focus {
+    border-color: var(--bp-gold-500);
+    box-shadow: 0 0 0 4px rgba(212, 169, 74, 0.15);
+}
+
+.bp-form-input.error {
+    border-color: var(--bp-danger);
+}
+
+.bp-field-error {
+    color: var(--bp-danger);
+    font-size: 12.5px;
+    margin-top: 5px;
+}
+
+.bp-password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--bp-ink-600);
+    padding: 4px;
+}
+
+.bp-form-row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+    font-size: 13.5px;
+}
+
+.bp-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--bp-ink-600);
+}
+
+.bp-checkbox-row input {
+    accent-color: var(--bp-maroon-800);
+    width: 15px;
+    height: 15px;
+}
+
+.bp-link {
+    color: var(--bp-maroon-800);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.bp-link:hover {
+    text-decoration: underline;
+}
+
+.bp-btn-primary {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: var(--bp-maroon-800);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.bp-btn-primary:hover:not(:disabled) {
+    background: var(--bp-maroon-900);
+}
+
+.bp-btn-primary:active:not(:disabled) {
+    transform: scale(0.99);
+}
+
+.bp-btn-primary:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.bp-spinner {
+    width: 15px;
+    height: 15px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: bp-spin 0.7s linear infinite;
+}
+
+@keyframes bp-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.bp-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    margin-bottom: 20px;
+    line-height: 1.4;
+}
+
+.bp-alert-error {
+    background: #fbeaea;
+    color: var(--bp-danger);
+    border: 1px solid #f3caca;
+}
+
+.bp-alert-success {
+    background: #e8f6ef;
+    color: var(--bp-success);
+    border: 1px solid #c6ead9;
+}
+
+.bp-auth-switch {
+    text-align: center;
+    margin-top: 26px;
+    font-size: 13.5px;
+    color: var(--bp-ink-600);
+}
+
+.bp-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 26px 0;
+    color: var(--bp-ink-600);
+    font-size: 12.5px;
+}
+
+.bp-divider::before,
+.bp-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--bp-line);
+}
+
+.bp-password-strength {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.bp-password-strength-bar {
+    height: 4px;
+    flex: 1;
+    border-radius: 2px;
+    background: var(--bp-line);
+    transition: background 0.2s ease;
+}

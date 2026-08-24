@@ -1,0 +1,43 @@
+     body {
+         overflow-y: scroll;
+     }
+     /* Remove global margin/padding offsets */
+html, body, #root {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ensure the layout container has zero gap between Sidebar and Content */
+.layout-container,
+.app-layout,
+.dashboard-layout,
+.main-wrapper {
+  display: flex !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  width: 100% !important;
+}
+
+/* Main panel containing Header and Page components */
+.main-content,
+.content-wrapper,
+.page-container {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Remove right shadow from Sidebar that creates the white blur/gap */
+.sidebar,
+aside {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important; /* Removes vertical shadow line */
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+}

@@ -1,0 +1,87 @@
+.lowstock-card{
+
+    margin-top:25px;
+
+    background:#fff;
+
+    border-radius:18px;
+
+    padding:20px;
+
+    box-shadow:0 8px 25px rgba(0,0,0,.08);
+
+}
+
+.lowstock-header{
+
+    margin-bottom:20px;
+
+}
+
+.lowstock-header h3{
+
+    font-size:20px;
+
+    color:#222;
+
+}
+
+.lowstock-table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+.lowstock-table th{
+
+    text-align:left;
+
+    padding:12px;
+
+    color:#666;
+
+    border-bottom:1px solid #eee;
+
+}
+
+.lowstock-table td{
+
+    padding:14px 12px;
+
+    border-bottom:1px solid #f3f3f3;
+
+}
+
+.lowstock-table tr:hover{
+
+    background:#fafafa;
+
+}
+
+.stock-badge{
+
+    background:#FEE2E2;
+
+    color:#DC2626;
+
+    padding:6px 14px;
+
+    border-radius:20px;
+
+    font-size:13px;
+
+    font-weight:600;
+
+}
+
+.empty{
+
+    text-align:center;
+
+    padding:30px;
+
+    color:#888;
+
+}

@@ -1,0 +1,105 @@
+.recent-card{
+
+    background:#fff;
+
+    border-radius:18px;
+
+    padding:20px;
+
+    box-shadow:0 8px 25px rgba(0,0,0,.08);
+
+}
+
+.recent-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:20px;
+
+}
+
+.recent-header h3{
+
+    font-size:20px;
+
+    color:#222;
+
+}
+
+.recent-table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+.recent-table th{
+
+    text-align:left;
+
+    padding:12px;
+
+    color:#666;
+
+    font-size:14px;
+
+    border-bottom:1px solid #eee;
+
+}
+
+.recent-table td{
+
+    padding:14px 12px;
+
+    border-bottom:1px solid #f3f3f3;
+
+}
+
+.recent-table tr:hover{
+
+    background:#f8f9fd;
+
+}
+
+.status{
+
+    padding:6px 14px;
+
+    border-radius:20px;
+
+    font-size:13px;
+
+    font-weight:600;
+
+}
+
+.status.paid{
+
+    background:#DCFCE7;
+
+    color:#16A34A;
+
+}
+
+.status.pending{
+
+    background:#FEF3C7;
+
+    color:#D97706;
+
+}
+
+.empty{
+
+    text-align:center;
+
+    color:#888;
+
+    padding:25px;
+
+}
