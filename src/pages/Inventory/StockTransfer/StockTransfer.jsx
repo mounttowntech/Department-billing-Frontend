@@ -484,50 +484,8 @@ export default function StockTransfer() {
           </button>
         </div>
 
-        {/* SUMMARY CARDS */}
-        <div className="stocktransfer-summary-grid">
-          <div className="stocktransfer-summary-card card-blue">
-            <div className="stocktransfer-summary-icon">
-              <ArrowLeftRight size={22} />
-            </div>
-            <div>
-              <h2>{summary.total}</h2>
-              <p>Total Transfers</p>
-            </div>
-          </div>
 
-          <div className="stocktransfer-summary-card card-green">
-            <div className="stocktransfer-summary-icon">
-              <CheckCircle2 size={22} />
-            </div>
-            <div>
-              <h2>{summary.completed}</h2>
-              <p>Completed</p>
-            </div>
-          </div>
 
-          <div className="stocktransfer-summary-card card-amber">
-            <div className="stocktransfer-summary-icon">
-              <Clock size={22} />
-            </div>
-            <div>
-              <h2>{summary.pending}</h2>
-              <p>Pending</p>
-            </div>
-          </div>
-
-          <div className="stocktransfer-summary-card card-purple">
-            <div className="stocktransfer-summary-icon">
-              <Boxes size={22} />
-            </div>
-            <div>
-              <h2>{summary.totalQtyMoved}</h2>
-              <p>Units Transferred</p>
-            </div>
-          </div>
-        </div>
-
-        {/* TOOLBAR */}
         <div className="stocktransfer-toolbar">
           <div className="stocktransfer-search-box">
             <Search size={18} />
@@ -629,8 +587,48 @@ export default function StockTransfer() {
 
 
         </div>
+        <div className="stocktransfer-summary-grid">
+          <div className="stocktransfer-summary-card card-blue">
+            <div className="stocktransfer-summary-icon">
+              <ArrowLeftRight size={22} />
+            </div>
+            <div>
+              <h2>{summary.total}</h2>
+              <p>Total Transfers</p>
+            </div>
+          </div>
 
-        {/* TABLE CARD - ZERO HORIZONTAL SCROLL */}
+          <div className="stocktransfer-summary-card card-green">
+            <div className="stocktransfer-summary-icon">
+              <CheckCircle2 size={22} />
+            </div>
+            <div>
+              <h2>{summary.completed}</h2>
+              <p>Completed</p>
+            </div>
+          </div>
+
+          <div className="stocktransfer-summary-card card-amber">
+            <div className="stocktransfer-summary-icon">
+              <Clock size={22} />
+            </div>
+            <div>
+              <h2>{summary.pending}</h2>
+              <p>Pending</p>
+            </div>
+          </div>
+
+          <div className="stocktransfer-summary-card card-purple">
+            <div className="stocktransfer-summary-icon">
+              <Boxes size={22} />
+            </div>
+            <div>
+              <h2>{summary.totalQtyMoved}</h2>
+              <p>Units Transferred</p>
+            </div>
+          </div>
+        </div>
+
         <div className="stocktransfer-table-card">
           <table className="stocktransfer-table">
             <thead>
@@ -643,7 +641,7 @@ export default function StockTransfer() {
                 <th style={{ width: "8%" }}>Total Qty</th>
                 <th style={{ width: "9%" }}>Status</th>
                 <th style={{ width: "12%" }}>Date</th>
-                <th style={{ width: "16%" }}>Actions</th>
+                <th style={{ width: "19%" }}>Actions</th>
               </tr>
             </thead>
 

@@ -363,8 +363,6 @@ export default function Offer() {
           </button>
         </div>
 
-        {/* SUMMARY CARDS */}
-
         {/* TOOLBAR */}
         <div className="offer-toolbar">
           <div className="offer-search-box">
@@ -423,9 +421,9 @@ export default function Offer() {
               Clear
             </button>
           )}
-
-
         </div>
+
+        {/* SUMMARY CARDS */}
         <div className="offer-summary-grid">
           <div className="offer-summary-card card-blue">
             <div className="offer-summary-icon">
@@ -477,9 +475,9 @@ export default function Offer() {
                 <th style={{ width: "12%" }}>Store</th>
                 <th style={{ width: "18%" }}>Target Scope</th>
                 <th style={{ width: "12%" }}>Discount Value</th>
-                <th style={{ width: "17%" }}>Validity Period</th>
-                <th style={{ width: "10%" }}>Status</th>
-                <th style={{ width: "15%" }}>Actions</th>
+                <th style={{ width: "16%" }}>Validity Period</th>
+                <th style={{ width: "9%" }}>Status</th>
+                <th style={{ width: "19%" }}>Actions</th>
               </tr>
             </thead>
 
@@ -547,13 +545,14 @@ export default function Offer() {
                     </td>
 
                     <td>
-                      <div className="offer-actions">
+                      <div className="offer-actions" style={{ display: "flex", gap: "5px" }}>
                         {/* View */}
                         <button
                           type="button"
                           className="offer-action-btn view-btn"
                           title="View Offer Details"
                           onClick={() => openViewModal(item)}
+                          style={{ width: "30px", height: "30px" }}
                         >
                           <Eye size={15} />
                         </button>
@@ -564,6 +563,7 @@ export default function Offer() {
                           className="offer-action-btn edit-btn"
                           title="Edit Campaign"
                           onClick={() => openEditModal(item)}
+                          style={{ width: "30px", height: "30px" }}
                         >
                           <Edit size={15} />
                         </button>
@@ -576,6 +576,7 @@ export default function Offer() {
                           }`}
                           title={item.status ? "Deactivate Offer" : "Activate Offer"}
                           onClick={() => handleToggleStatus(item)}
+                          style={{ width: "30px", height: "30px" }}
                         >
                           {!item.status ? (
                             <ShieldCheck size={15} />
@@ -590,6 +591,7 @@ export default function Offer() {
                           className="offer-action-btn delete-btn"
                           title="Permanently Delete Offer"
                           onClick={() => handleDelete(item)}
+                          style={{ width: "30px", height: "30px" }}
                         >
                           <Trash2 size={15} />
                         </button>

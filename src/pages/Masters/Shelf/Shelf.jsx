@@ -245,8 +245,8 @@ export default function Shelf() {
         </div>
 
 
-        <div className="toolbar">
-          <div className="search-box">
+        <div className="shelf-toolbar">
+          <div className="shelf-search-box">
             <Search size={18} />
             <input
               type="text"
@@ -257,7 +257,7 @@ export default function Shelf() {
           </div>
 
           <select
-            className="filter-select"
+            className="shelf-filter-select"
             value={storeFilter}
             onChange={(e) => setStoreFilter(e.target.value)}
           >
@@ -270,7 +270,7 @@ export default function Shelf() {
           </select>
 
           <select
-            className="filter-select"
+            className="shelf-filter-select"
             value={warehouseFilter}
             onChange={(e) => setWarehouseFilter(e.target.value)}
           >
@@ -283,7 +283,7 @@ export default function Shelf() {
           </select>
 
           <select
-            className="filter-select"
+            className="shelf-filter-select"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
           >
@@ -296,7 +296,7 @@ export default function Shelf() {
           </select>
 
           <select
-            className="filter-select"
+            className="shelf-filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >

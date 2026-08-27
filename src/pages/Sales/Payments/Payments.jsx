@@ -690,54 +690,6 @@ export default function Payment() {
           </button>
         </div>
 
-        <div className="payment-summary-grid">
-          <div className="payment-summary-card card-blue">
-            <div className="payment-summary-icon">
-              <CreditCard size={22} />
-            </div>
-
-            <div>
-              <h2>{payments.length}</h2>
-              <p>Total Payments</p>
-            </div>
-          </div>
-
-          <div className="payment-summary-card card-green">
-            <div className="payment-summary-icon">
-              <CircleDollarSign size={22} />
-            </div>
-
-            <div>
-              <h2>{formatCurrency(summary.totalAmount)}</h2>
-
-              <p>Paid Amount</p>
-            </div>
-          </div>
-
-          <div className="payment-summary-card card-purple">
-            <div className="payment-summary-icon">
-              <ArrowLeftRight size={22} />
-            </div>
-
-            <div>
-              <h2>{summary.completed}</h2>
-
-              <p>Completed</p>
-            </div>
-          </div>
-
-          <div className="payment-summary-card card-amber">
-            <div className="payment-summary-icon">
-              <Wallet size={22} />
-            </div>
-
-            <div>
-              <h2>{summary.partial}</h2>
-
-              <p>Partial Payments</p>
-            </div>
-          </div>
-        </div>
 
         <div className="payment-toolbar">
           <div className="payment-search-box">
@@ -827,6 +779,56 @@ export default function Payment() {
             </button>
           )}
         </div>
+
+        <div className="payment-summary-grid">
+          <div className="payment-summary-card card-blue">
+            <div className="payment-summary-icon">
+              <CreditCard size={22} />
+            </div>
+
+            <div>
+              <h2>{payments.length}</h2>
+              <p>Total Payments</p>
+            </div>
+          </div>
+
+          <div className="payment-summary-card card-green">
+            <div className="payment-summary-icon">
+              <CircleDollarSign size={22} />
+            </div>
+
+            <div>
+              <h2>{formatCurrency(summary.totalAmount)}</h2>
+
+              <p>Paid Amount</p>
+            </div>
+          </div>
+
+          <div className="payment-summary-card card-purple">
+            <div className="payment-summary-icon">
+              <ArrowLeftRight size={22} />
+            </div>
+
+            <div>
+              <h2>{summary.completed}</h2>
+
+              <p>Completed</p>
+            </div>
+          </div>
+
+          <div className="payment-summary-card card-amber">
+            <div className="payment-summary-icon">
+              <Wallet size={22} />
+            </div>
+
+            <div>
+              <h2>{summary.partial}</h2>
+
+              <p>Partial Payments</p>
+            </div>
+          </div>
+        </div>
+
 
         <div className="payment-table-card">
           <div className="payment-table-heading">

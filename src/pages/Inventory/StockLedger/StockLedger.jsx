@@ -443,51 +443,6 @@ export default function StockLedger() {
             New Entry
           </button>
         </div>
-
-        {/* SUMMARY CARDS */}
-        <div className="stockledger-summary-grid">
-          <div className="stockledger-summary-card card-blue">
-            <div className="stockledger-summary-icon">
-              <BookOpen size={22} />
-            </div>
-            <div>
-              <h2>{summary.totalEntries}</h2>
-              <p>Total Movements</p>
-            </div>
-          </div>
-
-          <div className="stockledger-summary-card card-green">
-            <div className="stockledger-summary-icon">
-              <ArrowDownLeft size={22} />
-            </div>
-            <div>
-              <h2>+{summary.inQty}</h2>
-              <p>Total Stock In</p>
-            </div>
-          </div>
-
-          <div className="stockledger-summary-card card-amber">
-            <div className="stockledger-summary-icon">
-              <ArrowUpRight size={22} />
-            </div>
-            <div>
-              <h2>-{summary.outQty}</h2>
-              <p>Total Stock Out</p>
-            </div>
-          </div>
-
-          <div className="stockledger-summary-card card-purple">
-            <div className="stockledger-summary-icon">
-              <Layers size={22} />
-            </div>
-            <div>
-              <h2>{summary.netStockChange >= 0 ? `+${summary.netStockChange}` : summary.netStockChange}</h2>
-              <p>Net Balance Delta</p>
-            </div>
-          </div>
-        </div>
-
-        {/* TOOLBAR */}
         <div className="stockledger-toolbar">
           <div className="stockledger-search-box">
             <Search size={18} />
@@ -578,6 +533,49 @@ export default function StockLedger() {
 
         </div>
 
+        <div className="stockledger-summary-grid">
+          <div className="stockledger-summary-card card-blue">
+            <div className="stockledger-summary-icon">
+              <BookOpen size={22} />
+            </div>
+            <div>
+              <h2>{summary.totalEntries}</h2>
+              <p>Total Movements</p>
+            </div>
+          </div>
+
+          <div className="stockledger-summary-card card-green">
+            <div className="stockledger-summary-icon">
+              <ArrowDownLeft size={22} />
+            </div>
+            <div>
+              <h2>+{summary.inQty}</h2>
+              <p>Total Stock In</p>
+            </div>
+          </div>
+
+          <div className="stockledger-summary-card card-amber">
+            <div className="stockledger-summary-icon">
+              <ArrowUpRight size={22} />
+            </div>
+            <div>
+              <h2>-{summary.outQty}</h2>
+              <p>Total Stock Out</p>
+            </div>
+          </div>
+
+          <div className="stockledger-summary-card card-purple">
+            <div className="stockledger-summary-icon">
+              <Layers size={22} />
+            </div>
+            <div>
+              <h2>{summary.netStockChange >= 0 ? `+${summary.netStockChange}` : summary.netStockChange}</h2>
+              <p>Net Balance Delta</p>
+            </div>
+          </div>
+        </div>
+
+
         <div className="stockledger-table-card">
           <table className="stockledger-table">
             <thead>
@@ -586,7 +584,7 @@ export default function StockLedger() {
                 <th style={{ width: "12%" }}>Ref No / Type</th>
                 <th style={{ width: "11%" }}>Movement</th>
                 <th style={{ width: "14%" }}>Store & Location</th>
-                <th style={{ width: "16%" }}>Product & SKU</th>
+                <th style={{ width: "17%" }}>Product & SKU</th>
                 <th style={{ width: "8%" }}>Change</th>
                 <th style={{ width: "12%" }}>Before → After</th>
                 <th style={{ width: "16%" }}>Actions</th>

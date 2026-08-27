@@ -537,7 +537,7 @@ export default function Settings() {
           <div className="settings-footer">
             <button
               type="submit"
-              className="save-btn"
+              className="set-save-btn"
               disabled={saving || loading}
             >
               {saving ? (

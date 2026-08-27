@@ -334,7 +334,7 @@
 
 .stocktransfer-table {
   width: 100%;
-  min-width: 650px;
+  min-width: 700px;
   table-layout: fixed;
   border-collapse: collapse;
 }
@@ -401,6 +401,7 @@
 }
 
 .badge.paid {
+  padding:2px;
   background: var(--bp-green-bg);
   color: var(--bp-green);
 }
@@ -411,6 +412,7 @@
 }
 
 .badge.pending {
+  padding:2px;
   background: var(--bp-red-bg);
   color: var(--bp-red);
 }

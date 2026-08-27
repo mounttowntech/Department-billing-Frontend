@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  NavLink,
+  useNavigate,
+} from "react-router-dom";
+
 import {
   FaBell,
   FaCheckCircle,
@@ -25,116 +33,138 @@ import {
 import "./Header.css";
 
 function Header() {
-  const { user, logout } = useAuth();
+  const {
+    user,
+    logout,
+  } = useAuth();
+
   const navigate = useNavigate();
 
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
+  /* =========================================================
+     STATES
+  ========================================================= */
 
-  const [notifications, setNotifications] = useState([]);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [notificationError, setNotificationError] = useState("");
+  const [
+    showNotifications,
+    setShowNotifications,
+  ] = useState(false);
+
+  const [
+    showProfile,
+    setShowProfile,
+  ] = useState(false);
+
+  const [
+    notifications,
+    setNotifications,
+  ] = useState([]);
+
+  const [
+    loadingNotifications,
+    setLoadingNotifications,
+  ] = useState(false);
+
+  const [
+    notificationError,
+    setNotificationError,
+  ] = useState("");
+
+  /* =========================================================
+     USER
+  ========================================================= */
+
+  const loggedUser = user || {};
+
+  /* =========================================================
+     USER NAME
+  ========================================================= */
+
+  const userName =
+    loggedUser?.name ||
+    loggedUser?.fullName ||
+    `${loggedUser?.firstName || ""} ${
+      loggedUser?.lastName || ""
+    }`.trim() ||
+    loggedUser?.username ||
+    loggedUser?.userName ||
+    "User";
+
+  /* =========================================================
+     EMAIL
+  ========================================================= */
+
+  const userEmail =
+    loggedUser?.email ||
+    loggedUser?.emailAddress ||
+    loggedUser?.mail ||
+    "";
+
+  /* =========================================================
+     ROLE
+  ========================================================= */
+
+  const userRole =
+    loggedUser?.roleName ||
+    loggedUser?.role?.roleName ||
+    loggedUser?.roleCode ||
+    loggedUser?.role?.roleCode ||
+    loggedUser?.role?.name ||
+    "USER";
+
+  /* =========================================================
+     STORE
+  ========================================================= */
+
+  const store =
+    loggedUser?.store ||
+    loggedUser?.storeDetails ||
+    null;
+
+  const storeName =
+    typeof store === "object"
+      ? (
+          store?.storeName ||
+          store?.name ||
+          store?.storeCode ||
+          ""
+        )
+      : store || "";
+
+  /* =========================================================
+     STORE CODE
+  ========================================================= */
+
+  const storeCode =
+    typeof store === "object"
+      ? store?.storeCode || ""
+      : "";
+
+  /* =========================================================
+     FIRST LETTER
+  ========================================================= */
+
+  const firstLetter =
+    String(userName)
+      .trim()
+      .charAt(0)
+      .toUpperCase() || "U";
+
+  /* =========================================================
+     PAGE TITLE
+  ========================================================= */
 
   const currentPage = {
     title: "Billing Pro",
     subtitle: "Department Billing ERP",
   };
 
-  // Safely grab user directly from AuthContext (which reads localStorage instantly)
-  const loggedUser = user || {};
+  /* =========================================================
+     NOTIFICATION ID
+  ========================================================= */
 
-  const userName =
-    loggedUser.name ||
-    loggedUser.fullName ||
-    (loggedUser.firstName
-      ? `${loggedUser.firstName} ${loggedUser.lastName || ""}`.trim()
-      : "") ||
-    loggedUser.userName ||
-    loggedUser.username ||
-    loggedUser.displayName ||
-    "Abinaya"; // Fallback to your name so it never shows "User"
-
-  const userRole =
-    (typeof loggedUser.role === "object"
-      ? loggedUser.role?.name || loggedUser.role?.roleName
-      : loggedUser.role) ||
-    loggedUser.roleName ||
-    loggedUser.userRole ||
-    "Administrator";
-
-  const userEmail =
-    loggedUser.email ||
-    loggedUser.emailAddress ||
-    loggedUser.mail ||
-    "admin@billingpro.com";
-
-  const firstLetter =
-    String(userName || "U")
-      .trim()
-      .charAt(0)
-      .toUpperCase() || "A";
-
-  const fetchNotifications = async () => {
-    try {
-      setLoadingNotifications(true);
-      setNotificationError("");
-
-      const response = await getNotifications();
-      let notificationData = [];
-
-      if (Array.isArray(response)) {
-        notificationData = response;
-      } else if (Array.isArray(response?.data)) {
-        notificationData = response.data;
-      } else if (Array.isArray(response?.data?.data)) {
-        notificationData = response.data.data;
-      } else if (Array.isArray(response?.data?.notifications)) {
-        notificationData = response.data.notifications;
-      } else if (Array.isArray(response?.notifications)) {
-        notificationData = response.notifications;
-      }
-
-      setNotifications(Array.isArray(notificationData) ? notificationData : []);
-    } catch (error) {
-      console.error("Notifications API Error:", error);
-      setNotificationError("Unable to load notifications");
-      setNotifications([]);
-    } finally {
-      setLoadingNotifications(false);
-    }
-  };
-
-  // Only fetch notifications on mount, NOT profile
-  useState(() => {
-    fetchNotifications();
-  }, []);
-
-  const isUnread = (notification) => {
-    return (
-      notification?.isRead === false ||
-      notification?.read === false ||
-      notification?.status === "unread"
-    );
-  };
-
-  const unreadNotifications = Array.isArray(notifications)
-    ? notifications.filter((notification) => isUnread(notification))
-    : [];
-
-  const getNotificationIcon = (type) => {
-    switch (String(type || "").toLowerCase()) {
-      case "success":
-        return <FaCheckCircle />;
-      case "warning":
-      case "danger":
-      case "error":
-        return <FaExclamationTriangle />;
-      default:
-        return <FaInfoCircle />;
-    }
-  };
-
-  const getNotificationId = (notification) => {
+  const getNotificationId = (
+    notification
+  ) => {
     return (
       notification?._id ||
       notification?.id ||
@@ -142,327 +172,942 @@ function Header() {
     );
   };
 
-  const handleMarkAsRead = async (notification) => {
-    const id = getNotificationId(notification);
-    if (!id) return;
+  /* =========================================================
+     FETCH MY NOTIFICATIONS
+  ========================================================= */
 
+  const fetchNotifications = async () => {
     try {
-      await markNotificationAsRead(id);
-      setNotifications((prev) =>
-        Array.isArray(prev) ? prev.filter((item) => getNotificationId(item) !== id) : []
+      setLoadingNotifications(true);
+      setNotificationError("");
+
+      const response =
+        await getNotifications();
+
+      console.log(
+        "NOTIFICATION API RESPONSE:",
+        response
+      );
+
+      /*
+       * Backend response:
+       *
+       * {
+       *   success: true,
+       *   message: "Notifications retrieved successfully.",
+       *   data: {
+       *      total,
+       *      page,
+       *      limit,
+       *      totalPages,
+       *      data: []
+       *   }
+       * }
+       */
+
+      let notificationData = [];
+
+      if (
+        Array.isArray(
+          response?.data?.data
+        )
+      ) {
+        notificationData =
+          response.data.data;
+      } else if (
+        Array.isArray(response?.data)
+      ) {
+        notificationData =
+          response.data;
+      } else if (
+        Array.isArray(
+          response?.notifications
+        )
+      ) {
+        notificationData =
+          response.notifications;
+      } else if (
+        Array.isArray(response)
+      ) {
+        notificationData =
+          response;
+      }
+
+      setNotifications(
+        Array.isArray(notificationData)
+          ? notificationData
+          : []
       );
     } catch (error) {
-      console.error("Mark notification read error:", error);
+      console.error(
+        "NOTIFICATIONS API ERROR:",
+        error
+      );
+
+      setNotificationError(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to load notifications."
+      );
+
+      setNotifications([]);
+    } finally {
+      setLoadingNotifications(false);
     }
   };
 
-  const handleMarkAllAsRead = async () => {
-    if (unreadNotifications.length === 0) return;
+  /* =========================================================
+     INITIAL LOAD
+  ========================================================= */
 
-    try {
-      const firstId = getNotificationId(unreadNotifications[0]);
-      if (!firstId) return;
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
 
-      await markAllNotificationsAsRead(firstId);
-      setNotifications((prev) =>
-        Array.isArray(prev) ? prev.filter((item) => !isUnread(item)) : []
-      );
-    } catch (error) {
-      console.error("Mark all notifications error:", error);
+  /* =========================================================
+     UNREAD CHECK
+  ========================================================= */
+
+  const isUnread = (
+    notification
+  ) => {
+    return (
+      notification?.isRead === false
+    );
+  };
+
+  /* =========================================================
+     UNREAD NOTIFICATIONS
+  ========================================================= */
+
+  const unreadNotifications =
+    Array.isArray(notifications)
+      ? notifications.filter(
+          isUnread
+        )
+      : [];
+
+  /* =========================================================
+     NOTIFICATION ICON
+  ========================================================= */
+
+  const getNotificationIcon = (
+    type
+  ) => {
+    switch (
+      String(type || "")
+        .toLowerCase()
+    ) {
+      case "success":
+      case "payment":
+        return <FaCheckCircle />;
+
+      case "warning":
+      case "danger":
+      case "error":
+      case "critical":
+        return (
+          <FaExclamationTriangle />
+        );
+
+      default:
+        return <FaInfoCircle />;
     }
   };
 
-  const handleDeleteNotification = async (notification) => {
-    const id = getNotificationId(notification);
-    if (!id) return;
+  /* =========================================================
+     NOTIFICATION TYPE CLASS
+  ========================================================= */
+
+  const getNotificationTypeClass = (
+    notification
+  ) => {
+    const type = String(
+      notification?.type || "general"
+    ).toLowerCase();
+
+    if (
+      type === "payment" ||
+      type === "success"
+    ) {
+      return "success";
+    }
+
+    if (
+      type === "expense" ||
+      type === "stock" ||
+      type === "purchase" ||
+      type === "supplier"
+    ) {
+      return "warning";
+    }
+
+    if (
+      type === "critical" ||
+      type === "error" ||
+      notification?.priority ===
+        "Critical"
+    ) {
+      return "danger";
+    }
+
+    return "info";
+  };
+
+  /* =========================================================
+     MARK SINGLE AS READ
+  ========================================================= */
+
+  const handleMarkAsRead = async (
+    notification
+  ) => {
+    const id =
+      getNotificationId(
+        notification
+      );
+
+    if (!id) {
+      return;
+    }
 
     try {
-      await deleteNotification(id);
-      setNotifications((prev) =>
-        Array.isArray(prev) ? prev.filter((item) => getNotificationId(item) !== id) : []
+      await markNotificationAsRead(
+        id
+      );
+
+      /*
+       * Remove it from notification
+       * dropdown because dropdown
+       * displays unread notifications.
+       */
+
+      setNotifications(
+        (previous) =>
+          Array.isArray(previous)
+            ? previous.filter(
+                (item) =>
+                  getNotificationId(
+                    item
+                  ) !== id
+              )
+            : []
       );
     } catch (error) {
-      console.error("Delete notification error:", error);
+      console.error(
+        "MARK NOTIFICATION READ ERROR:",
+        error
+      );
     }
   };
+
+  /* =========================================================
+     MARK ALL AS READ
+  ========================================================= */
+
+  const handleMarkAllAsRead =
+    async () => {
+      if (
+        unreadNotifications.length ===
+        0
+      ) {
+        return;
+      }
+
+      try {
+        /*
+         * Backend:
+         * PUT /api/notifications/read-all
+         *
+         * No receiver is required because
+         * backend gets req.user.id.
+         */
+
+        await markAllNotificationsAsRead();
+
+        /*
+         * Remove all unread notifications
+         * from dropdown.
+         */
+
+        setNotifications(
+          (previous) =>
+            Array.isArray(previous)
+              ? previous.filter(
+                  (item) =>
+                    !isUnread(item)
+                )
+              : []
+        );
+      } catch (error) {
+        console.error(
+          "MARK ALL NOTIFICATIONS ERROR:",
+          error
+        );
+      }
+    };
+
+  /* =========================================================
+     DELETE NOTIFICATION
+  ========================================================= */
+
+  const handleDeleteNotification =
+    async (
+      notification
+    ) => {
+      const id =
+        getNotificationId(
+          notification
+        );
+
+      if (!id) {
+        return;
+      }
+
+      try {
+        await deleteNotification(
+          id
+        );
+
+        setNotifications(
+          (previous) =>
+            Array.isArray(previous)
+              ? previous.filter(
+                  (item) =>
+                    getNotificationId(
+                      item
+                    ) !== id
+                )
+              : []
+        );
+      } catch (error) {
+        console.error(
+          "DELETE NOTIFICATION ERROR:",
+          error
+        );
+      }
+    };
+
+  /* =========================================================
+     LOGOUT
+  ========================================================= */
 
   const handleLogout = () => {
     setShowProfile(false);
     setShowNotifications(false);
+
     logout();
-    navigate("/login");
+
+    navigate("/login", {
+      replace: true,
+    });
   };
+
+  /* =========================================================
+     TOGGLE NOTIFICATIONS
+  ========================================================= */
 
   const toggleNotifications = () => {
     setShowProfile(false);
-    setShowNotifications((prev) => !prev);
-    if (!showNotifications) fetchNotifications();
+
+    setShowNotifications(
+      (previous) => !previous
+    );
+
+    /*
+     * Refresh whenever dropdown
+     * is opened.
+     */
+
+    if (!showNotifications) {
+      fetchNotifications();
+    }
   };
+
+  /* =========================================================
+     TOGGLE PROFILE
+  ========================================================= */
 
   const toggleProfile = () => {
     setShowNotifications(false);
-    setShowProfile((prev) => !prev);
+
+    setShowProfile(
+      (previous) => !previous
+    );
   };
 
-  const formatTime = (notification) => {
+  /* =========================================================
+     FORMAT TIME
+  ========================================================= */
+
+  const formatTime = (
+    notification
+  ) => {
     const date =
       notification?.createdAt ||
       notification?.updatedAt ||
       notification?.date;
 
-    if (!date) return "Recently";
+    if (!date) {
+      return "Recently";
+    }
 
-    const parsedDate = new Date(date);
-    if (Number.isNaN(parsedDate.getTime())) return "Recently";
+    const parsedDate =
+      new Date(date);
 
-    return parsedDate.toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      return "Recently";
+    }
+
+    return parsedDate.toLocaleString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
   };
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
     <header className="app-header">
-      {/* Title */}
+
+      {/* =====================================================
+          LEFT
+      ===================================================== */}
+
       <div className="header-left">
+
         <div
           className="header-title"
-          style={{ cursor: "pointer" }}
-          onClick={() => navigate("/dashboard")}
+          onClick={() =>
+            navigate("/dashboard")
+          }
         >
-          <h1>{currentPage.title}</h1>
-          <span>{currentPage.subtitle}</span>
+          <h1>
+            {currentPage.title}
+          </h1>
+
+          <span>
+            {currentPage.subtitle}
+          </span>
         </div>
+
       </div>
 
-      {/* Action Controls */}
+      {/* =====================================================
+          RIGHT
+      ===================================================== */}
+
       <div className="header-right">
-        {/* Notifications */}
+
+        {/* ===================================================
+            NOTIFICATIONS
+        =================================================== */}
+
         <div className="notification-wrapper">
+
           <button
             type="button"
             className={`header-icon-btn ${
-              showNotifications ? "header-icon-active" : ""
+              showNotifications
+                ? "header-icon-active"
+                : ""
             }`}
-            onClick={toggleNotifications}
+            onClick={
+              toggleNotifications
+            }
             aria-label="Notifications"
           >
             <FaBell />
-            {unreadNotifications.length > 0 && (
+
+            {unreadNotifications.length >
+              0 && (
               <span className="notification-badge">
-                {unreadNotifications.length}
+                {
+                  unreadNotifications.length
+                }
               </span>
             )}
           </button>
 
+          {/* =================================================
+              NOTIFICATION DROPDOWN
+          ================================================= */}
+
           {showNotifications && (
             <div className="notification-dropdown">
+
+              {/* =============================================
+                  HEADER
+              ============================================= */}
+
               <div className="notification-header">
+
                 <div>
-                  <h3>Notifications</h3>
-                  <span>{unreadNotifications.length} unread</span>
+
+                  <h3>
+                    Notifications
+                  </h3>
+
+                  <span>
+                    {
+                      unreadNotifications.length
+                    }{" "}
+                    unread
+                  </span>
+
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                  }}
-                >
-                  {unreadNotifications.length > 0 && (
+
+                <div className="notification-header-actions">
+
+                  {unreadNotifications.length >
+                    0 && (
                     <button
                       type="button"
-                      className="refresh-notification"
-                      onClick={handleMarkAllAsRead}
+                      className="mark-all-button"
+                      onClick={
+                        handleMarkAllAsRead
+                      }
                     >
                       Mark all read
                     </button>
                   )}
+
                   <button
                     type="button"
                     className="refresh-notification"
-                    onClick={() => setShowNotifications(false)}
+                    onClick={() =>
+                      setShowNotifications(
+                        false
+                      )
+                    }
+                    aria-label="Close notifications"
                   >
                     <FaTimes />
                   </button>
+
                 </div>
+
               </div>
 
+              {/* =============================================
+                  LIST
+              ============================================= */}
+
               <div className="notification-list">
+
+                {/* LOADING */}
+
                 {loadingNotifications ? (
                   <div className="notification-empty">
-                    <div className="notification-loader"></div>
-                    <h4>Loading notifications...</h4>
+
+                    <div className="notification-loader" />
+
+                    <h4>
+                      Loading
+                      notifications...
+                    </h4>
+
                   </div>
                 ) : notificationError ? (
+
+                  /* ERROR */
+
                   <div className="notification-empty">
+
                     <FaExclamationTriangle />
-                    <h4>{notificationError}</h4>
+
+                    <h4>
+                      {notificationError}
+                    </h4>
+
                     <button
                       type="button"
-                      className="refresh-notification"
-                      onClick={fetchNotifications}
+                      className="mark-all-button"
+                      onClick={
+                        fetchNotifications
+                      }
                     >
                       Try again
                     </button>
+
                   </div>
-                ) : unreadNotifications.length === 0 ? (
+                ) : unreadNotifications.length ===
+                  0 ? (
+
+                  /* EMPTY */
+
                   <div className="notification-empty">
+
                     <FaCheckCircle />
-                    <h4>You're all caught up</h4>
-                    <p>No new notifications</p>
+
+                    <h4>
+                      You're all caught up
+                    </h4>
+
+                    <p>
+                      No new notifications
+                    </p>
+
                   </div>
                 ) : (
-                  unreadNotifications.map((notification) => {
-                    const id = getNotificationId(notification);
-                    const type =
-                      notification?.type ||
-                      notification?.notificationType ||
-                      "info";
-                    const title =
-                      notification?.title ||
-                      notification?.subject ||
-                      notification?.name ||
-                      "Notification";
-                    const message =
-                      notification?.message ||
-                      notification?.description ||
-                      notification?.content ||
-                      "You have a new notification.";
 
-                    return (
-                      <div className="notification-item" key={id}>
-                        <div className={`notification-item-icon ${type}`}>
-                          {getNotificationIcon(type)}
-                        </div>
+                  /* NOTIFICATIONS */
 
-                        <div className="notification-content">
-                          <h4>{title}</h4>
-                          <p>{message}</p>
-                          <span>{formatTime(notification)}</span>
+                  unreadNotifications.map(
+                    (
+                      notification
+                    ) => {
+
+                      const id =
+                        getNotificationId(
+                          notification
+                        );
+
+                      const type =
+                        notification?.type ||
+                        "general";
+
+                      const title =
+                        notification?.title ||
+                        "Notification";
+
+                      const message =
+                        notification?.message ||
+                        "You have a new notification.";
+
+                      const typeClass =
+                        getNotificationTypeClass(
+                          notification
+                        );
+
+                      return (
+                        <div
+                          className="notification-item"
+                          key={id}
+                        >
+
+                          {/* ICON */}
 
                           <div
-                            style={{
-                              display: "flex",
-                              gap: "8px",
-                              marginTop: "8px",
-                            }}
+                            className={`notification-item-icon ${typeClass}`}
                           >
-                            <button
-                              type="button"
-                              className="refresh-notification"
-                              onClick={() => handleMarkAsRead(notification)}
-                            >
-                              Mark as read
-                            </button>
-                            <button
-                              type="button"
-                              className="refresh-notification"
-                              onClick={() =>
-                                handleDeleteNotification(notification)
-                              }
-                              title="Delete"
-                            >
-                              <FaTrash />
-                            </button>
+                            {getNotificationIcon(
+                              type
+                            )}
                           </div>
+
+                          {/* CONTENT */}
+
+                          <div className="notification-content">
+
+                            <h4>
+                              {title}
+                            </h4>
+
+                            <p>
+                              {message}
+                            </p>
+
+                            {/* PRIORITY */}
+
+                            {notification?.priority && (
+                              <small
+                                style={{
+                                  display:
+                                    "block",
+                                  marginTop:
+                                    "4px",
+                                  fontSize:
+                                    "10px",
+                                  color:
+                                    notification.priority ===
+                                    "Critical"
+                                      ? "#dc2626"
+                                      : "#98a0b3",
+                                }}
+                              >
+                                Priority:{" "}
+                                {
+                                  notification.priority
+                                }
+                              </small>
+                            )}
+
+                            <span>
+                              {formatTime(
+                                notification
+                              )}
+                            </span>
+
+                            {/* ACTIONS */}
+
+                            <div className="notification-actions">
+
+                              <button
+                                type="button"
+                                className="small-action-button"
+                                onClick={() =>
+                                  handleMarkAsRead(
+                                    notification
+                                  )
+                                }
+                              >
+                                Mark as read
+                              </button>
+
+                              <button
+                                type="button"
+                                className="delete-notification-button"
+                                onClick={() =>
+                                  handleDeleteNotification(
+                                    notification
+                                  )
+                                }
+                                title="Delete notification"
+                                aria-label="Delete notification"
+                              >
+                                <FaTrash />
+                              </button>
+
+                            </div>
+
+                          </div>
+
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    }
+                  )
                 )}
+
               </div>
+
+              {/* =============================================
+                  FOOTER
+              ============================================= */}
 
               <div className="notification-footer">
-                <button type="button" onClick={fetchNotifications}>
+
+                <button
+                  type="button"
+                  onClick={
+                    fetchNotifications
+                  }
+                >
                   Refresh notifications
                 </button>
+
               </div>
+
             </div>
           )}
+
         </div>
 
-        <div className="header-divider"></div>
+        {/* ===================================================
+            DIVIDER
+        =================================================== */}
 
-        {/* Profile */}
+        <div className="header-divider" />
+
+        {/* ===================================================
+            PROFILE
+        =================================================== */}
+
         <div className="profile-wrapper">
+
           <button
             type="button"
             className={`profile-button ${
-              showProfile ? "profile-button-active" : ""
+              showProfile
+                ? "profile-button-active"
+                : ""
             }`}
-            onClick={toggleProfile}
+            onClick={
+              toggleProfile
+            }
           >
-            <div className="profile-avatar profile-avatar-default">
+
+            <div className="profile-avatar-default">
               {firstLetter}
             </div>
 
             <div className="profile-info">
-              <strong>{userName}</strong>
-              <span>{userRole}</span>
+
+              <strong>
+                {userName}
+              </strong>
+
+              <span>
+                {userRole}
+              </span>
+
             </div>
 
             <FaChevronDown
-              className={`profile-arrow ${showProfile ? "rotate" : ""}`}
+              className={`profile-arrow ${
+                showProfile
+                  ? "rotate"
+                  : ""
+              }`}
             />
+
           </button>
+
+          {/* =================================================
+              PROFILE DROPDOWN
+          ================================================= */}
 
           {showProfile && (
             <div className="profile-dropdown">
+
+              {/* USER INFORMATION */}
+
               <div className="profile-dropdown-user">
-                <div className="profile-large-avatar">{firstLetter}</div>
-                <div>
-                  <h3>{userName}</h3>
-                  <span>{userRole}</span>
-                  <small>{userEmail}</small>
+
+                <div className="profile-large-avatar">
+                  {firstLetter}
                 </div>
+
+                <div>
+
+                  <h3>
+                    {userName}
+                  </h3>
+
+                  <span>
+                    {userRole}
+                  </span>
+
+                  {userEmail && (
+                    <small>
+                      {userEmail}
+                    </small>
+                  )}
+
+                  {storeName && (
+                    <small className="profile-store">
+                      Store:{" "}
+                      {storeName}
+                    </small>
+                  )}
+
+                  {storeCode && (
+                    <small className="profile-store-code">
+                      Code:{" "}
+                      {storeCode}
+                    </small>
+                  )}
+
+                </div>
+
               </div>
 
-              <div className="profile-menu-divider"></div>
+              <div className="profile-menu-divider" />
+
+              {/* MY PROFILE */}
 
               <NavLink
                 to="/profile"
                 className="profile-menu-item"
-                onClick={() => setShowProfile(false)}
+                onClick={() =>
+                  setShowProfile(
+                    false
+                  )
+                }
               >
+
                 <FaUser />
+
                 <div>
-                  <strong>My Profile</strong>
-                  <span>View your account</span>
+
+                  <strong>
+                    My Profile
+                  </strong>
+
+                  <span>
+                    View your account
+                  </span>
+
                 </div>
+
               </NavLink>
+
+              {/* SETTINGS */}
 
               <NavLink
                 to="/settings"
                 className="profile-menu-item"
-                onClick={() => setShowProfile(false)}
+                onClick={() =>
+                  setShowProfile(
+                    false
+                  )
+                }
               >
+
                 <FaCog />
+
                 <div>
-                  <strong>Settings</strong>
-                  <span>Account settings</span>
+
+                  <strong>
+                    Settings
+                  </strong>
+
+                  <span>
+                    Account settings
+                  </span>
+
                 </div>
+
               </NavLink>
 
-              <div className="profile-menu-divider"></div>
+              <div className="profile-menu-divider" />
+
+              {/* LOGOUT */}
 
               <button
                 type="button"
                 className="profile-menu-item logout-item"
-                onClick={handleLogout}
+                onClick={
+                  handleLogout
+                }
               >
+
                 <FaSignOutAlt />
+
                 <div>
-                  <strong>Logout</strong>
-                  <span>Sign out of your account</span>
+
+                  <strong>
+                    Logout
+                  </strong>
+
+                  <span>
+                    Sign out of your
+                    account
+                  </span>
+
                 </div>
+
               </button>
+
             </div>
           )}
+
         </div>
+
       </div>
+
     </header>
   );
 }

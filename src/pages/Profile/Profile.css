@@ -298,6 +298,34 @@
   cursor: not-allowed !important;
   transform: none !important;
 }
+/* STORE / ROLE READ ONLY FIELDS */
+.input-disabled {
+  background: #f3f4f6 !important;
+  color: #6b7280 !important;
+  border-color: #e5e7eb !important;
+  cursor: not-allowed !important;
+}
+
+/* PROFILE META */
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.meta-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* STORE ICON */
+.meta-item svg {
+  color: #2563eb;
+  flex-shrink: 0;
+}
 
 @media (max-width: 1200px) {
   .profile-grid {

@@ -446,7 +446,7 @@ export default function LoyaltyPoints() {
                 <th style={{ width: "10%" }}>Type</th>
                 <th style={{ width: "11%" }}>Points</th>
                 <th style={{ width: "13%" }}>Post Balance</th>
-                <th style={{ width: "12%" }}>Actions</th>
+                <th style={{ width: "14%" }}>Actions</th>
               </tr>
             </thead>
 

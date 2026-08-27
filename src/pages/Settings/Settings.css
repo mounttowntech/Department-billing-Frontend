@@ -220,9 +220,9 @@
   padding-top: 18px;
 }
 
-.save-btn {
-  background: #4f46e5;
-  color: #ffffff;
+.set-save-btn {
+  background: #352dc4;
+ color: white;
   border: none;
   padding: 10px 20px;
   border-radius: 8px;
