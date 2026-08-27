@@ -210,10 +210,14 @@ export default function SalesInvoice() {
   );
 
   const updateField = (key, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setFormData((prev) => {
+      const updated = { ...prev, [key]: value };
+      // If store changes, reset customer selection if it doesn't match the new store
+      if (key === "store") {
+        updated.customer = "";
+      }
+      return updated;
+    });
   };
 
   // --- Auto-Check Promotional Offer ---
@@ -244,7 +248,6 @@ export default function SalesInvoice() {
         if (res?.data?.success && res.data.offerAvailable && res.data.bestOffer) {
           const best = res.data.bestOffer;
           setAppliedOfferName(best.offerName);
-          // Automatically set discount as coupon amount / promotional savings
           updateField("couponAmount", best.discount);
           if (best.offerName) {
             updateField("couponCode", best.offerName.toUpperCase());
@@ -306,7 +309,7 @@ export default function SalesInvoice() {
     setFormData((prev) => ({
       ...prev,
       customerType: value,
-      customer: value === "walk_in" ? "" : prev.customer,
+      customer: value === "walk_in" ? "" : "",
     }));
   };
 
@@ -953,19 +956,28 @@ export default function SalesInvoice() {
                     </label>
                     <select
                       value={formData.customer}
-                      disabled={formData.customerType === "walk_in"}
+                      disabled={formData.customerType === "walk_in" || !formData.store}
                       onChange={(e) => updateField("customer", e.target.value)}
                     >
                       <option value="">
                         {formData.customerType === "walk_in"
                           ? "Walk-In (No customer account needed)"
-                          : "Select CRM Customer"}
+                          : !formData.store
+                          ? "Please select a store first"
+                          : "Select Store Customer"}
                       </option>
                       {formData.customerType !== "walk_in" &&
+                        formData.store &&
                         customers
                           .filter((customer) => {
                             const cType = customer.customerType || "";
-                            return cType.toLowerCase() === formData.customerType.toLowerCase();
+                            const matchesType =
+                              cType.toLowerCase() === formData.customerType.toLowerCase();
+
+                            const custStoreId = customer.store?._id || customer.store || "";
+                            const matchesStore = String(custStoreId) === String(formData.store);
+
+                            return matchesType && matchesStore;
                           })
                           .map((customer) => (
                             <option key={customer._id} value={customer._id}>

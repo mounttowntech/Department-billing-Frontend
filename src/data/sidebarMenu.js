@@ -58,13 +58,13 @@ const sidebarMenu = [
         icon: FaUsers,
         module: "Users",
       },
-      {
-        title: "Role Permission",
-        path: "/masters/rolepermission",
-        icon: FaUserShield,
-        module: "Role Permission",
-        roles: ["ADMIN"],
-      },
+      // {
+      //   title: "Role Permission",
+      //   path: "/masters/rolepermission",
+      //   icon: FaUserShield,
+      //   module: "Role Permission",
+      //   roles: ["ADMIN"],
+      // },
       {
         title: "Tax Settings",
         path: "/masters/tax-settings",
