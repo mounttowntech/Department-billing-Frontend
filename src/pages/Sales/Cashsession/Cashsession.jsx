@@ -442,9 +442,9 @@ const Cashsession = () => {
                 <th style={{ width: "8%" }}>Expenses</th>
                 <th style={{ width: "8%" }}>Closing</th>
                 <th style={{ width: "8%" }}>Difference</th>
-                <th style={{ width: "7%" }}>Status</th>
+                <th style={{ width: "10%" }}>Status</th>
                 <th style={{ width: "9%" }}>Opened At</th>
-                <th style={{ width: "14%" }}>Actions</th>
+                <th style={{ width: "19%" }}>Actions</th>
               </tr>
             </thead>
 
