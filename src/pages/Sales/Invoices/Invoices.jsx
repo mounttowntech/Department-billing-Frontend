@@ -13,6 +13,7 @@ import {
   Clock,
   AlertCircle,
   UserCheck,
+  Tag,
 } from "lucide-react";
 
 import {
@@ -28,6 +29,7 @@ import { getProducts } from "../../../services/productService";
 import { getVariants } from "../../../services/productVariantService";
 import { getCustomers } from "../../../services/customerService";
 import { getCoupons } from "../../../services/couponService";
+import { checkApplicableOffer } from "../../../services/offerService";
 
 const CUSTOMER_TYPES = [
   { label: "Regular", value: "regular" },
@@ -107,6 +109,9 @@ export default function SalesInvoice() {
 
   const [formData, setFormData] = useState(emptyInvoice());
   const [items, setItems] = useState([emptyItem()]);
+
+  // Offer integration state
+  const [appliedOfferName, setAppliedOfferName] = useState("");
 
   const selectedCustomerDetails = useMemo(() => {
     if (!formData.customer) return null;
@@ -211,11 +216,54 @@ export default function SalesInvoice() {
     }));
   };
 
-  // --- Auto-Fetch Coupon Discount (Supports Fixed & Percentage) ---
+  // --- Auto-Check Promotional Offer ---
+  useEffect(() => {
+    const evaluateOffers = async () => {
+      if (!formData.store || items.length === 0) {
+        setAppliedOfferName("");
+        return;
+      }
+
+      const firstValidItem = items.find((it) => it.product);
+      if (!firstValidItem) return;
+
+      const currentBillAmount = items.reduce(
+        (sum, item) => sum + Number(item.quantity || 0) * Number(item.price || 0),
+        0
+      );
+
+      if (currentBillAmount <= 0) return;
+
+      try {
+        const res = await checkApplicableOffer({
+          store: formData.store,
+          productId: firstValidItem.product,
+          billAmount: currentBillAmount,
+        });
+
+        if (res?.data?.success && res.data.offerAvailable && res.data.bestOffer) {
+          const best = res.data.bestOffer;
+          setAppliedOfferName(best.offerName);
+          // Automatically set discount as coupon amount / promotional savings
+          updateField("couponAmount", best.discount);
+          if (best.offerName) {
+            updateField("couponCode", best.offerName.toUpperCase());
+          }
+        }
+      } catch (err) {
+        console.error("Check applicable offer error:", err);
+      }
+    };
+
+    evaluateOffers();
+  }, [formData.store, items]);
+
+  // --- Auto-Fetch Coupon Discount ---
   const handleCouponBlur = async () => {
     const code = formData.couponCode.trim().toUpperCase();
     if (!code) {
       updateField("couponAmount", 0);
+      setAppliedOfferName("");
       return;
     }
 
@@ -419,6 +467,7 @@ export default function SalesInvoice() {
       invoiceNo: generateInvoiceNumber(),
     });
     setItems([emptyItem()]);
+    setAppliedOfferName("");
     setShowModal(true);
   };
 
@@ -460,6 +509,7 @@ export default function SalesInvoice() {
     }));
 
     setItems(mappedItems.length ? mappedItems : [emptyItem()]);
+    setAppliedOfferName("");
     setShowModal(true);
   };
 
@@ -469,6 +519,7 @@ export default function SalesInvoice() {
     setEditingId(null);
     setFormData(emptyInvoice());
     setItems([emptyItem()]);
+    setAppliedOfferName("");
   };
 
   const cleanObjectId = (value) => {
@@ -531,11 +582,6 @@ export default function SalesInvoice() {
     const paidAmount = Math.max(Number(formData.paidAmount || 0), 0);
     const couponAmount = Math.max(Number(formData.couponAmount || 0), 0);
 
-    if (couponAmount > 0 && !formData.couponCode.trim()) {
-      alert("Please enter a coupon code when coupon amount is used.");
-      return;
-    }
-
     const payload = {
       invoiceNo: formData.invoiceNo,
       invoiceDate: formData.invoiceDate,
@@ -579,6 +625,7 @@ export default function SalesInvoice() {
       setEditingId(null);
       setFormData(emptyInvoice());
       setItems([emptyItem()]);
+      setAppliedOfferName("");
 
       await fetchInvoices();
     } catch (err) {
@@ -1009,21 +1056,26 @@ export default function SalesInvoice() {
                   </div>
 
                   <div className="form-group">
-                    <label>Coupon Code</label>
+                    <label>Coupon / Promo Code</label>
                     <input
                       type="text"
-                      placeholder="e.g. SAVE100"
+                      placeholder="e.g. SAVE100 or Auto-Offer"
                       value={formData.couponCode}
                       onChange={(e) =>
                         updateField("couponCode", e.target.value.toUpperCase())
                       }
                       onBlur={handleCouponBlur}
                     />
-                    <small className="field-hint">Click outside to apply coupon</small>
+                    {appliedOfferName && (
+                      <small className="field-hint" style={{ color: "var(--bp-green)", fontWeight: 600 }}>
+                        <Tag size={12} style={{ display: "inline", marginRight: 3 }} />
+                        Applied Offer: {appliedOfferName}
+                      </small>
+                    )}
                   </div>
 
                   <div className="form-group">
-                    <label>Coupon Amount</label>
+                    <label>Discount / Coupon Amount</label>
                     <input
                       type="number"
                       min="0"
@@ -1239,7 +1291,7 @@ export default function SalesInvoice() {
                   </div>
 
                   <div className="totals-row coupon-row">
-                    <span>Coupon</span>
+                    <span>Coupon / Offer Discount</span>
                     <span>- ₹{totalsPreview.couponAmount}</span>
                   </div>
 
@@ -1306,7 +1358,7 @@ export default function SalesInvoice() {
                     : editingId
                       ? "Update Invoice"
                       : "Create Invoice"}
-                </button>
+                  </button>
               </div>
             </div>
           </div>

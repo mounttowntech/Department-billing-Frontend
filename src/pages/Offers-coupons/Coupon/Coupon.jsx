@@ -11,7 +11,6 @@ import {
   Save,
   CheckCircle2,
   Percent,
-  IndianRupee,
   Layers,
   ShieldCheck,
   ShieldAlert,
@@ -62,7 +61,6 @@ export default function Coupon() {
   const [storeFilter, setStoreFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-
 
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -410,8 +408,6 @@ export default function Coupon() {
               Clear
             </button>
           )}
-
-
         </div>
 
         <div className="coupon-summary-grid">
@@ -455,6 +451,7 @@ export default function Coupon() {
             </div>
           </div>
         </div>
+
         <div className="coupon-table-card">
           <table className="coupon-table">
             <thead>
@@ -466,7 +463,7 @@ export default function Coupon() {
                 <th style={{ width: "11%" }}>Usage / Limit</th>
                 <th style={{ width: "15%" }}>Validity Period</th>
                 <th style={{ width: "8%" }}>Status</th>
-                <th style={{ width: "12%" }}>Actions</th>
+                <th style={{ width: "19%" }}>Actions</th>
               </tr>
             </thead>
 
@@ -558,7 +555,6 @@ export default function Coupon() {
 
                     <td>
                       <div className="coupon-actions">
-
                         <button
                           type="button"
                           className="coupon-action-btn view-btn"
@@ -568,7 +564,6 @@ export default function Coupon() {
                           <Eye size={15} />
                         </button>
 
-    
                         <button
                           type="button"
                           className="coupon-action-btn edit-btn"

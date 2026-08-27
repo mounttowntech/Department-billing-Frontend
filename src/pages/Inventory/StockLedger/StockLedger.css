@@ -396,11 +396,13 @@
 }
 
 .stockledger-green-text {
+  padding-left: 20px;
   color: var(--bp-green) !important;
   font-weight: 700;
 }
 
 .stockledger-red-text {
+  padding:20px;
   color: var(--bp-red) !important;
   font-weight: 700;
 }

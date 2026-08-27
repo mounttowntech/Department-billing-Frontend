@@ -40,7 +40,6 @@ export const deleteCoupon = async (id) => {
   return response.data;
 };
 
-
 export const validateCoupon = async (id) => {
   const response = await api.get(
     `/coupons/validate/${id}`
@@ -48,7 +47,6 @@ export const validateCoupon = async (id) => {
 
   return response.data;
 };
-
 
 export const getCouponByCode = async (couponCode) => {
   const response = await api.get(

@@ -210,9 +210,6 @@ export default function StockAdjustment() {
     setToDate("");
   };
 
-  // ======================================================
-  // FILTERED LIST & SUMMARY
-  // ======================================================
   const filteredAdjustments = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return adjustments;
@@ -402,50 +399,7 @@ export default function StockAdjustment() {
           </button>
         </div>
 
-        {/* SUMMARY CARDS */}
-        <div className="stockadj-summary-grid">
-          <div className="stockadj-summary-card card-blue">
-            <div className="stockadj-summary-icon">
-              <Sliders size={22} />
-            </div>
-            <div>
-              <h2>{summary.total}</h2>
-              <p>Total Adjustments</p>
-            </div>
-          </div>
 
-          <div className="stockadj-summary-card card-green">
-            <div className="stockadj-summary-icon">
-              <TrendingUp size={22} />
-            </div>
-            <div>
-              <h2>{summary.increases}</h2>
-              <p>Stock In (+)</p>
-            </div>
-          </div>
-
-          <div className="stockadj-summary-card card-red">
-            <div className="stockadj-summary-icon">
-              <TrendingDown size={22} />
-            </div>
-            <div>
-              <h2>{summary.decreases}</h2>
-              <p>Stock Out (-)</p>
-            </div>
-          </div>
-
-          <div className="stockadj-summary-card card-purple">
-            <div className="stockadj-summary-icon">
-              <Layers size={22} />
-            </div>
-            <div>
-              <h2>{summary.totalQty}</h2>
-              <p>Units Adjusted</p>
-            </div>
-          </div>
-        </div>
-
-        {/* TOOLBAR */}
         <div className="stockadj-toolbar">
           <div className="stockadj-search-box">
             <Search size={18} />
@@ -515,7 +469,48 @@ export default function StockAdjustment() {
 
         </div>
 
-        {/* TABLE CARD */}
+
+        <div className="stockadj-summary-grid">
+          <div className="stockadj-summary-card card-blue">
+            <div className="stockadj-summary-icon">
+              <Sliders size={22} />
+            </div>
+            <div>
+              <h2>{summary.total}</h2>
+              <p>Total Adjustments</p>
+            </div>
+          </div>
+
+          <div className="stockadj-summary-card card-green">
+            <div className="stockadj-summary-icon">
+              <TrendingUp size={22} />
+            </div>
+            <div>
+              <h2>{summary.increases}</h2>
+              <p>Stock In (+)</p>
+            </div>
+          </div>
+
+          <div className="stockadj-summary-card card-red">
+            <div className="stockadj-summary-icon">
+              <TrendingDown size={22} />
+            </div>
+            <div>
+              <h2>{summary.decreases}</h2>
+              <p>Stock Out (-)</p>
+            </div>
+          </div>
+
+          <div className="stockadj-summary-card card-purple">
+            <div className="stockadj-summary-icon">
+              <Layers size={22} />
+            </div>
+            <div>
+              <h2>{summary.totalQty}</h2>
+              <p>Units Adjusted</p>
+            </div>
+          </div>
+        </div>
         <div className="stockadj-table-card">
           <table className="stockadj-table">
             <thead>

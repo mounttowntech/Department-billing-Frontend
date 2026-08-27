@@ -452,8 +452,8 @@ export default function Product() {
           </button>
         </div>
 
-        <div className="toolbar">
-          <div className="search-box">
+        <div className="product-toolbar">
+          <div className="product-search-box">
             <Search size={18} />
 
             <input
@@ -465,7 +465,7 @@ export default function Product() {
           </div>
 
           <select
-            className="filter-select"
+            className="product-filter-select"
             value={storeFilter}
             onChange={(e) => setStoreFilter(e.target.value)}
           >
@@ -479,7 +479,7 @@ export default function Product() {
           </select>
 
           <select
-            className="filter-select"
+            className="product-filter-select"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
@@ -493,7 +493,7 @@ export default function Product() {
           </select>
 
           <select
-            className="filter-select"
+            className="product-filter-select"
             value={brandFilter}
             onChange={(e) => setBrandFilter(e.target.value)}
           >
@@ -507,7 +507,7 @@ export default function Product() {
           </select>
 
           <select
-            className="filter-select"
+            className="product-filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >

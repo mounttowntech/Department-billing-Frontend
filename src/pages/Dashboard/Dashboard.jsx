@@ -1,1026 +1,767 @@
-import React, { useEffect, useState } from "react";
-import {
-  FaRupeeSign,
-  FaFileInvoice,
-  FaUsers,
-  FaBoxOpen,
-  FaCreditCard,
-  FaClock,
-  FaUndo,
-  FaChartLine,
-  FaExclamationTriangle,
-  FaSyncAlt,
-  FaArrowUp,
-  FaArrowDown,
-  FaEye,
-} from "react-icons/fa";
-
+import React, { useEffect, useMemo, useState } from "react";
+import "./Dashboard.css";
 import { getDashboardOverview } from "../../services/dashboardService";
 
-import "./Dashboard.css";
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const formatCurrency = (value) => {
+  const amount = Number(value || 0);
+
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
+
+const formatDate = (value) => {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getInitials = (firstName, lastName) => {
+  const first = firstName?.charAt(0) || "";
+  const last = lastName?.charAt(0) || "";
+
+  return `${first}${last}`.toUpperCase() || "U";
+};
+
+const formatRole = (role) => {
+  if (!role) return "USER";
+
+  return role
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+/* =========================================================
+   STAT CARD
+========================================================= */
+
+const StatCard = ({
+  icon,
+  title,
+  value,
+  subtitle,
+  type = "",
+}) => {
+  return (
+    <div className={`dashboard-stat-card ${type}`}>
+      <div className="dashboard-stat-content">
+        <div className="dashboard-stat-text">
+          <p className="dashboard-stat-title">
+            {title}
+          </p>
+
+          <h2 className="dashboard-stat-value">
+            {value}
+          </h2>
+
+          {subtitle && (
+            <p className="dashboard-stat-subtitle">
+              {subtitle}
+            </p>
+          )}
+        </div>
+
+        <div className="dashboard-stat-icon">
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* =========================================================
+   SECTION HEADER
+========================================================= */
+
+const SectionHeader = ({
+  title,
+  subtitle,
+}) => {
+  return (
+    <div className="dashboard-section-header">
+      <div>
+        <h3>{title}</h3>
+
+        {subtitle && (
+          <p>{subtitle}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* =========================================================
+   RECENT INVOICES
+========================================================= */
+
+const RecentInvoices = ({
+  invoices = [],
+}) => {
+  return (
+    <div className="dashboard-panel">
+      <SectionHeader
+        title="Recent Invoices"
+        subtitle="Latest sales invoices"
+      />
+
+      {invoices.length === 0 ? (
+        <div className="dashboard-empty">
+          <div className="dashboard-empty-icon">
+            🧾
+          </div>
+
+          <p>No invoices found</p>
+        </div>
+      ) : (
+        <div className="dashboard-table-wrapper">
+          <table className="dashboard-table">
+            <thead>
+              <tr>
+                <th>Invoice No</th>
+                <th>Customer</th>
+                <th>Date</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Due</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {invoices.map((invoice) => {
+                const status =
+                  invoice.paymentStatus ||
+                  "Pending";
+
+                return (
+                  <tr key={invoice._id}>
+                    <td>
+                      <strong>
+                        {invoice.invoiceNo || "-"}
+                      </strong>
+                    </td>
+
+                    <td>
+                      {invoice.customer?.customerName ||
+                        "Walk-In Customer"}
+                    </td>
+
+                    <td>
+                      {formatDate(
+                        invoice.invoiceDate
+                      )}
+                    </td>
+
+                    <td>
+                      <strong>
+                        {formatCurrency(
+                          invoice.grandTotal
+                        )}
+                      </strong>
+                    </td>
+
+                    <td>
+                      {formatCurrency(
+                        invoice.paidAmount
+                      )}
+                    </td>
+
+                    <td>
+                      {formatCurrency(
+                        invoice.dueAmount
+                      )}
+                    </td>
+
+                    <td>
+                      <span
+                        className={`dashboard-status ${status
+                          .toLowerCase()
+                          .replace(/\s+/g, "-")}`}
+                      >
+                        {status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* =========================================================
+   LOW STOCK
+========================================================= */
+
+const LowStockProducts = ({
+  products = [],
+}) => {
+  return (
+    <div className="dashboard-panel">
+      <SectionHeader
+        title="Low Stock Products"
+        subtitle="Products that need restocking"
+      />
+
+      {products.length === 0 ? (
+        <div className="dashboard-empty">
+          <div className="dashboard-empty-icon">
+            ✅
+          </div>
+
+          <p>No low-stock products</p>
+        </div>
+      ) : (
+        <div className="low-stock-list">
+          {products.map((product) => {
+            const stock = Number(
+              product.totalStock || 0
+            );
+
+            const minimum = Number(
+              product.minimumStock || 0
+            );
+
+            return (
+              <div
+                className="low-stock-item"
+                key={product._id}
+              >
+                <div className="low-stock-product">
+                  <div className="low-stock-product-icon">
+                    📦
+                  </div>
+
+                  <div>
+                    <h4>
+                      {product.productName || "-"}
+                    </h4>
+
+                    <p>
+                      {product.productCode ||
+                        "No product code"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="low-stock-quantity">
+                  <strong>{stock}</strong>
+
+                  <span>
+                    Min: {minimum}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* =========================================================
+   ADMIN / MANAGER
+========================================================= */
+
+const AdminManagerDashboard = ({
+  data,
+  role,
+}) => {
+  const cards = data?.cards || {};
+
+  const lowStockProducts =
+    data?.lowStockProducts || [];
+
+  const recentInvoices =
+    data?.recentInvoices || [];
+
+  return (
+    <>
+      <div className="dashboard-page-header">
+        <div>
+          <h1>
+            {role === "ADMIN"
+              ? "Admin Dashboard"
+              : "Manager Dashboard"}
+          </h1>
+
+          <p>
+            Monitor your store performance
+            and business activity.
+          </p>
+        </div>
+      </div>
+
+      <div className="dashboard-stats-grid">
+        <StatCard
+          icon="📦"
+          title="Total Products"
+          value={cards.totalProducts ?? 0}
+          subtitle="Products in store"
+          type="products"
+        />
+
+        <StatCard
+          icon="👥"
+          title="Total Customers"
+          value={cards.totalCustomers ?? 0}
+          subtitle="Active customers"
+          type="customers"
+        />
+
+        <StatCard
+          icon="🧾"
+          title="Total Invoices"
+          value={cards.totalInvoices ?? 0}
+          subtitle="Sales invoices"
+          type="invoices"
+        />
+
+        <StatCard
+          icon="🛒"
+          title="Total Purchases"
+          value={cards.totalPurchases ?? 0}
+          subtitle="Purchase records"
+          type="purchases"
+        />
+      </div>
+
+      <div className="dashboard-two-column">
+        <LowStockProducts
+          products={lowStockProducts}
+        />
+
+        <RecentInvoices
+          invoices={recentInvoices}
+        />
+      </div>
+    </>
+  );
+};
+
+/* =========================================================
+   CASHIER
+========================================================= */
+
+const CashierDashboard = ({
+  data,
+}) => {
+  const cards = data?.cards || {};
+
+  const recentInvoices =
+    data?.recentInvoices || [];
+
+  return (
+    <>
+      <div className="dashboard-page-header">
+        <div>
+          <h1>Cashier Dashboard</h1>
+
+          <p>
+            Manage today's billing and
+            payment activity.
+          </p>
+        </div>
+      </div>
+
+      <div className="dashboard-stats-grid cashier-grid">
+        <StatCard
+          icon="🧾"
+          title="Today's Invoices"
+          value={cards.todayInvoices ?? 0}
+          subtitle="Invoices created today"
+          type="invoices"
+        />
+
+        <StatCard
+          icon="₹"
+          title="Today's Sales"
+          value={formatCurrency(
+            cards.todaySales
+          )}
+          subtitle="Sales generated today"
+          type="sales"
+        />
+
+        <StatCard
+          icon="💳"
+          title="Pending Payments"
+          value={cards.pendingPayments ?? 0}
+          subtitle="Pending / partial payments"
+          type="pending"
+        />
+      </div>
+
+      <RecentInvoices
+        invoices={recentInvoices}
+      />
+    </>
+  );
+};
+
+/* =========================================================
+   SALES EXECUTIVE
+========================================================= */
+
+const SalesExecutiveDashboard = ({
+  data,
+}) => {
+  const cards = data?.cards || {};
+
+  const recentInvoices =
+    data?.recentInvoices || [];
+
+  return (
+    <>
+      <div className="dashboard-page-header">
+        <div>
+          <h1>
+            Sales Executive Dashboard
+          </h1>
+
+          <p>
+            Track customers, invoices and
+            sales performance.
+          </p>
+        </div>
+      </div>
+
+      <div className="dashboard-stats-grid sales-executive-grid">
+        <StatCard
+          icon="👥"
+          title="Total Customers"
+          value={cards.totalCustomers ?? 0}
+          subtitle="Active customers"
+          type="customers"
+        />
+
+        <StatCard
+          icon="🧾"
+          title="Total Invoices"
+          value={cards.totalInvoices ?? 0}
+          subtitle="Sales invoices"
+          type="invoices"
+        />
+
+        <StatCard
+          icon="₹"
+          title="Total Sales"
+          value={formatCurrency(
+            cards.totalSales
+          )}
+          subtitle="Total invoice value"
+          type="sales"
+        />
+      </div>
+
+      <RecentInvoices
+        invoices={recentInvoices}
+      />
+    </>
+  );
+};
+
+/* =========================================================
+   MAIN DASHBOARD
+========================================================= */
 
 const Dashboard = () => {
-  const [dashboard, setDashboard] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [dashboard, setDashboard] =
+    useState(null);
 
-  /* ============================================================
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  /* =======================================================
      LOAD DASHBOARD
-  ============================================================ */
-
-  const loadDashboard = async (isRefresh = false) => {
-    try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      setError("");
-
-      const response = await getDashboardOverview();
-
-      if (response?.data?.success) {
-        setDashboard(response.data.data);
-      } else {
-        throw new Error(
-          response?.data?.message || "Unable to load dashboard"
-        );
-      }
-    } catch (err) {
-      console.error("Dashboard Error:", err);
-
-      setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Unable to load dashboard"
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  ======================================================= */
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadDashboard = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const data =
+          await getDashboardOverview();
+
+        if (!mounted) return;
+
+        if (!data?.success) {
+          throw new Error(
+            data?.message ||
+              "Unable to load dashboard"
+          );
+        }
+
+        setDashboard(data);
+      } catch (err) {
+        console.error(
+          "Dashboard Error:",
+          err
+        );
+
+        if (!mounted) return;
+
+        const message =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load dashboard";
+
+        setError(message);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     loadDashboard();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  /* ============================================================
-     HELPERS
-  ============================================================ */
+  /* =======================================================
+     USER INFORMATION
+  ======================================================= */
 
-  const formatCurrency = (value) => {
-    const number = Number(value || 0);
+  const user = dashboard?.user;
 
-    return `₹${number.toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
+  const role = useMemo(() => {
+    return String(
+      dashboard?.role ||
+        user?.role?.roleCode ||
+        ""
+    ).toUpperCase();
+  }, [dashboard, user]);
 
-  const formatNumber = (value) => {
-    return Number(value || 0).toLocaleString("en-IN");
-  };
+  const storeName =
+    user?.store?.storeName || "Store";
 
-  const formatDate = (date) => {
-    if (!date) return "-";
+  const fullName =
+    `${user?.firstName || ""} ${
+      user?.lastName || ""
+    }`.trim() || "User";
 
-    const parsedDate = new Date(date);
+  const initials = getInitials(
+    user?.firstName,
+    user?.lastName
+  );
 
-    if (Number.isNaN(parsedDate.getTime())) {
-      return "-";
-    }
-
-    return parsedDate.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const getCustomerName = (invoice) => {
-    if (!invoice?.customer) {
-      return "Walk-In Customer";
-    }
-
-    return (
-      invoice.customer.customerName ||
-      invoice.customer.name ||
-      "Walk-In Customer"
-    );
-  };
-
-  const getPaymentClass = (status) => {
-    const value = String(status || "").toLowerCase();
-
-    if (value === "paid") return "status-paid";
-    if (value === "partial") return "status-partial";
-
-    return "status-pending";
-  };
-
-  const getStockClass = (stock) => {
-    const value = Number(stock || 0);
-
-    if (value <= 0) return "stock-out";
-    if (value <= 5) return "stock-critical";
-
-    return "stock-low";
-  };
-
-  /* ============================================================
+  /* =======================================================
      LOADING
-  ============================================================ */
+  ======================================================= */
 
   if (loading) {
     return (
       <div className="dashboard-page">
         <div className="dashboard-loading">
           <div className="dashboard-spinner"></div>
+
           <p>Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
-  /* ============================================================
+  /* =======================================================
      ERROR
-  ============================================================ */
+  ======================================================= */
 
-  if (error && !dashboard) {
+  if (error) {
     return (
       <div className="dashboard-page">
         <div className="dashboard-error">
-          <FaExclamationTriangle />
+          <div className="dashboard-error-icon">
+            ⚠️
+          </div>
 
-          <h3>Unable to load dashboard</h3>
+          <h2>
+            Unable to load dashboard
+          </h2>
 
           <p>{error}</p>
 
           <button
             type="button"
-            onClick={() => loadDashboard()}
+            onClick={() =>
+              window.location.reload()
+            }
           >
-            <FaSyncAlt />
-            Try Again
+            Retry
           </button>
         </div>
       </div>
     );
   }
 
-  const summary = dashboard?.summary || {};
+  /* =======================================================
+     NO DATA
+  ======================================================= */
 
-  const paymentSummary =
-    dashboard?.paymentSummary || [];
-
-  const salesOverview =
-    dashboard?.salesOverview || [];
-
-  const recentInvoices =
-    dashboard?.recentInvoices || [];
-
-  const topSellingProducts =
-    dashboard?.topSellingProducts || [];
-
-  const lowStockProducts =
-    dashboard?.lowStockProducts || [];
-
-  /* ============================================================
-     PAYMENT DATA
-  ============================================================ */
-
-  const paymentMethods = [
-    {
-      key: "Cash",
-      label: "Cash",
-      icon: "💵",
-    },
-    {
-      key: "UPI",
-      label: "UPI",
-      icon: "📱",
-    },
-    {
-      key: "Card",
-      label: "Card",
-      icon: "💳",
-    },
-    {
-      key: "Wallet",
-      label: "Wallet",
-      icon: "👛",
-    },
-    {
-      key: "Credit",
-      label: "Credit",
-      icon: "🧾",
-    },
-  ];
-
-  const getPaymentAmount = (method) => {
-    const item = paymentSummary.find(
-      (payment) =>
-        String(payment?._id || "").toLowerCase() ===
-        method.toLowerCase()
-    );
-
-    return Number(item?.amount || 0);
-  };
-
-  const paymentTotal = paymentMethods.reduce(
-    (total, method) =>
-      total + getPaymentAmount(method.key),
-    0
-  );
-
-  /* ============================================================
-     SALES CHART
-  ============================================================ */
-
-  const maxSales = Math.max(
-    ...salesOverview.map((item) =>
-      Number(item.sales || 0)
-    ),
-    1
-  );
-
-  /* ============================================================
-     RENDER
-  ============================================================ */
-
-  return (
-    <div className="dashboard-page">
-
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
-
-      <div className="dashboard-header">
-
-        <div>
-          <h1>Dashboard</h1>
+  if (!dashboard) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-error">
+          <h2>No dashboard data</h2>
 
           <p>
-            Overview of your billing and business
-            performance
+            The server did not return
+            dashboard information.
           </p>
         </div>
+      </div>
+    );
+  }
 
-        <button
-          type="button"
-          className="dashboard-refresh-btn"
-          onClick={() => loadDashboard(true)}
-          disabled={refreshing}
-        >
-          <FaSyncAlt
-            className={
-              refreshing
-                ? "refresh-spinning"
-                : ""
-            }
+  /* =======================================================
+     ACCESS CHECK
+  ======================================================= */
+
+  if (!dashboard.success) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-error">
+          <div className="dashboard-error-icon">
+            🔒
+          </div>
+
+          <h2>
+            Dashboard Access Denied
+          </h2>
+
+          <p>
+            {dashboard.message ||
+              "You do not have dashboard access."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* =======================================================
+     ROLE DASHBOARD
+  ======================================================= */
+
+  const renderRoleDashboard = () => {
+    switch (role) {
+      case "ADMIN":
+        return (
+          <AdminManagerDashboard
+            data={dashboard.data}
+            role="ADMIN"
           />
+        );
 
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </button>
+      case "MANAGER":
+        return (
+          <AdminManagerDashboard
+            data={dashboard.data}
+            role="MANAGER"
+          />
+        );
 
-      </div>
+      case "CASHIER":
+        return (
+          <CashierDashboard
+            data={dashboard.data}
+          />
+        );
 
-      {/* ======================================================
-          ERROR MESSAGE
-      ====================================================== */}
+      case "SALES_EXECUTIVE":
+        return (
+          <SalesExecutiveDashboard
+            data={dashboard.data}
+          />
+        );
 
-      {error && (
-        <div className="dashboard-inline-error">
-          <FaExclamationTriangle />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* ======================================================
-          SUMMARY CARDS
-      ====================================================== */}
-
-      <div className="dashboard-summary-grid">
-
-        {/* Today's Sales */}
-
-        <div className="dashboard-card summary-card sales-card">
-
-          <div className="summary-card-top">
-
-            <div className="summary-icon">
-              <FaRupeeSign />
+      default:
+        return (
+          <div className="dashboard-error">
+            <div className="dashboard-error-icon">
+              🔒
             </div>
 
-            <span className="summary-label">
-              Today's Sales
-            </span>
-
-          </div>
-
-          <div className="summary-value">
-            {formatCurrency(summary.todaySales)}
-          </div>
-
-          <div className="summary-bottom">
-            <span>
-              <FaArrowUp />
-              Today
-            </span>
-
-            <small>
-              {formatNumber(summary.todayInvoices)} invoices
-            </small>
-          </div>
-
-        </div>
-
-        {/* Today's Invoices */}
-
-        <div className="dashboard-card summary-card invoice-card">
-
-          <div className="summary-card-top">
-
-            <div className="summary-icon">
-              <FaFileInvoice />
-            </div>
-
-            <span className="summary-label">
-              Today's Invoices
-            </span>
-
-          </div>
-
-          <div className="summary-value">
-            {formatNumber(summary.todayInvoices)}
-          </div>
-
-          <div className="summary-bottom">
-            <span>
-              <FaFileInvoice />
-              Billing
-            </span>
-
-            <small>
-              Active invoices
-            </small>
-          </div>
-
-        </div>
-
-        {/* Customers */}
-
-        <div className="dashboard-card summary-card customer-card">
-
-          <div className="summary-card-top">
-
-            <div className="summary-icon">
-              <FaUsers />
-            </div>
-
-            <span className="summary-label">
-              Customers
-            </span>
-
-          </div>
-
-          <div className="summary-value">
-            {formatNumber(summary.totalCustomers)}
-          </div>
-
-          <div className="summary-bottom">
-            <span>
-              <FaUsers />
-              Active
-            </span>
-
-            <small>
-              Registered customers
-            </small>
-          </div>
-
-        </div>
-
-        {/* Products */}
-
-        <div className="dashboard-card summary-card product-card">
-
-          <div className="summary-card-top">
-
-            <div className="summary-icon">
-              <FaBoxOpen />
-            </div>
-
-            <span className="summary-label">
-              Products
-            </span>
-
-          </div>
-
-          <div className="summary-value">
-            {formatNumber(summary.totalProducts)}
-          </div>
-
-          <div className="summary-bottom">
-            <span>
-              <FaBoxOpen />
-              Inventory
-            </span>
-
-            <small>
-              Total products
-            </small>
-          </div>
-
-        </div>
-
-        {/* Paid */}
-
-        <div className="dashboard-card summary-card paid-card">
-
-          <div className="summary-card-top">
-
-            <div className="summary-icon">
-              <FaCreditCard />
-            </div>
-
-            <span className="summary-label">
-              Today's Paid
-            </span>
-
-          </div>
-
-          <div className="summary-value">
-            {formatCurrency(summary.todayPaid)}
-          </div>
-
-          <div className="summary-bottom">
-            <span>
-              <FaCreditCard />
-              Received
-            </span>
-          </div>
-
-        </div>
-
-        {/* Due */}
-
-        <div className="dashboard-card summary-card due-card">
-
-          <div className="summary-card-top">
-
-            <div className="summary-icon">
-              <FaClock />
-            </div>
-
-            <span className="summary-label">
-              Today's Due
-            </span>
-
-          </div>
-
-          <div className="summary-value">
-            {formatCurrency(summary.todayDue)}
-          </div>
-
-          <div className="summary-bottom">
-            <span>
-              <FaClock />
-              Pending
-            </span>
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* ======================================================
-          MAIN GRID
-      ====================================================== */}
-
-      <div className="dashboard-main-grid">
-
-        {/* ====================================================
-            SALES OVERVIEW
-        ==================================================== */}
-
-        <div className="dashboard-card chart-card">
-
-          <div className="section-header">
-
-            <div>
-              <h2>
-                <FaChartLine />
-                Sales Overview
-              </h2>
-
-              <p>
-                Sales performance for the last 7 days
-              </p>
-            </div>
-
-          </div>
-
-          {salesOverview.length === 0 ? (
-            <div className="empty-state">
-              <FaChartLine />
-              <p>No sales data available</p>
-            </div>
-          ) : (
-            <div className="sales-chart">
-
-              {salesOverview.map((item, index) => {
-
-                const sales =
-                  Number(item.sales || 0);
-
-                const height =
-                  Math.max(
-                    (sales / maxSales) * 100,
-                    sales > 0 ? 8 : 2
-                  );
-
-                const date = new Date(
-                  `${item._id}T00:00:00`
-                );
-
-                const day = Number.isNaN(
-                  date.getTime()
-                )
-                  ? item._id
-                  : date.toLocaleDateString(
-                      "en-IN",
-                      {
-                        weekday: "short",
-                      }
-                    );
-
-                return (
-                  <div
-                    className="chart-column"
-                    key={`${item._id}-${index}`}
-                  >
-
-                    <div className="chart-value">
-                      {sales > 0
-                        ? formatCurrency(sales)
-                        : "₹0"}
-                    </div>
-
-                    <div className="chart-bar-area">
-
-                      <div
-                        className="chart-bar"
-                        style={{
-                          height: `${height}%`,
-                        }}
-                        title={formatCurrency(sales)}
-                      ></div>
-
-                    </div>
-
-                    <span className="chart-day">
-                      {day}
-                    </span>
-
-                    <small>
-                      {formatNumber(item.invoices)} invoice
-                      {Number(item.invoices || 0) !== 1
-                        ? "s"
-                        : ""}
-                    </small>
-
-                  </div>
-                );
-              })}
-
-            </div>
-          )}
-
-        </div>
-
-        {/* ====================================================
-            PAYMENT SUMMARY
-        ==================================================== */}
-
-        <div className="dashboard-card payment-card">
-
-          <div className="section-header">
-
-            <div>
-              <h2>
-                <FaCreditCard />
-                Payment Summary
-              </h2>
-
-              <p>
-                Today's payment collection
-              </p>
-            </div>
-
-          </div>
-
-          <div className="payment-total">
-            <span>Total Collected</span>
-
-            <strong>
-              {formatCurrency(paymentTotal)}
-            </strong>
-          </div>
-
-          <div className="payment-list">
-
-            {paymentMethods.map((method) => {
-
-              const amount =
-                getPaymentAmount(method.key);
-
-              const percentage =
-                paymentTotal > 0
-                  ? (amount / paymentTotal) * 100
-                  : 0;
-
-              return (
-                <div
-                  className="payment-row"
-                  key={method.key}
-                >
-
-                  <div className="payment-row-top">
-
-                    <div className="payment-name">
-                      <span className="payment-emoji">
-                        {method.icon}
-                      </span>
-
-                      <span>
-                        {method.label}
-                      </span>
-                    </div>
-
-                    <strong>
-                      {formatCurrency(amount)}
-                    </strong>
-
-                  </div>
-
-                  <div className="payment-progress">
-                    <div
-                      className="payment-progress-fill"
-                      style={{
-                        width: `${percentage}%`,
-                      }}
-                    ></div>
-                  </div>
-
-                </div>
-              );
-            })}
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* ======================================================
-          SECOND GRID
-      ====================================================== */}
-
-      <div className="dashboard-two-column">
-
-        {/* ====================================================
-            RECENT INVOICES
-        ==================================================== */}
-
-        <div className="dashboard-card table-card">
-
-          <div className="section-header">
-
-            <div>
-              <h2>
-                <FaFileInvoice />
-                Recent Invoices
-              </h2>
-
-              <p>
-                Latest sales invoices
-              </p>
-            </div>
-
-          </div>
-
-          {recentInvoices.length === 0 ? (
-            <div className="empty-state">
-              <FaFileInvoice />
-              <p>No invoices found</p>
-            </div>
-          ) : (
-            <div className="dashboard-table-wrapper">
-
-              <table className="dashboard-table">
-
-                <thead>
-                  <tr>
-                    <th>Invoice</th>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-
-                  {recentInvoices.map((invoice) => (
-
-                    <tr key={invoice._id}>
-
-                      <td>
-                        <strong className="invoice-number">
-                          {invoice.invoiceNo || "-"}
-                        </strong>
-                      </td>
-
-                      <td>
-                        <span className="customer-name">
-                          {getCustomerName(invoice)}
-                        </span>
-                      </td>
-
-                      <td>
-                        {formatDate(invoice.invoiceDate)}
-                      </td>
-
-                      <td>
-                        <strong>
-                          {formatCurrency(
-                            invoice.grandTotal
-                          )}
-                        </strong>
-                      </td>
-
-                      <td>
-                        <span
-                          className={`invoice-status ${getPaymentClass(
-                            invoice.paymentStatus
-                          )}`}
-                        >
-                          {invoice.paymentStatus ||
-                            "Pending"}
-                        </span>
-                      </td>
-
-                    </tr>
-
-                  ))}
-
-                </tbody>
-
-              </table>
-
-            </div>
-          )}
-
-        </div>
-
-        {/* ====================================================
-            TOP SELLING PRODUCTS
-        ==================================================== */}
-
-        <div className="dashboard-card top-products-card">
-
-          <div className="section-header">
-
-            <div>
-              <h2>
-                <FaBoxOpen />
-                Top Selling Products
-              </h2>
-
-              <p>
-                Best performing products
-              </p>
-            </div>
-
-          </div>
-
-          {topSellingProducts.length === 0 ? (
-            <div className="empty-state">
-              <FaBoxOpen />
-              <p>No product sales available</p>
-            </div>
-          ) : (
-            <div className="top-products-list">
-
-              {topSellingProducts.map(
-                (product, index) => (
-
-                  <div
-                    className="top-product-row"
-                    key={
-                      product._id ||
-                      `product-${index}`
-                    }
-                  >
-
-                    <div className="product-rank">
-                      {index + 1}
-                    </div>
-
-                    <div className="product-info">
-
-                      <strong>
-                        {product.productName ||
-                          "Unknown Product"}
-                      </strong>
-
-                      <span>
-                        {product.productCode ||
-                          "-"}
-                      </span>
-
-                    </div>
-
-                    <div className="product-sales">
-
-                      <strong>
-                        {formatNumber(
-                          product.quantity
-                        )}
-                      </strong>
-
-                      <span>
-                        sold
-                      </span>
-
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-          )}
-
-        </div>
-
-      </div>
-
-      {/* ======================================================
-          LOW STOCK
-      ====================================================== */}
-
-      <div className="dashboard-card low-stock-card">
-
-        <div className="section-header">
-
-          <div>
             <h2>
-              <FaExclamationTriangle />
-              Low Stock Products
+              Dashboard Not Configured
             </h2>
 
             <p>
-              Products that need stock attention
+              No dashboard configuration
+              found for role:
             </p>
+
+            <strong>
+              {role || "UNKNOWN"}
+            </strong>
+          </div>
+        );
+    }
+  };
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
+  return (
+    <div className="dashboard-page">
+      {/* USER / STORE BAR */}
+
+      <div className="dashboard-user-bar">
+        <div className="dashboard-user-info">
+          <div className="dashboard-avatar">
+            {initials}
           </div>
 
-          <span className="low-stock-count">
-            {lowStockProducts.length} items
-          </span>
+          <div>
+            <h2>
+              Welcome, {fullName}
+            </h2>
 
-        </div>
-
-        {lowStockProducts.length === 0 ? (
-          <div className="empty-state success-empty">
-            <FaBoxOpen />
             <p>
-              All products have sufficient stock
+              {user?.role?.roleName || role}
+              {storeName
+                ? ` • ${storeName}`
+                : ""}
             </p>
           </div>
-        ) : (
-          <div className="low-stock-grid">
+        </div>
 
-            {lowStockProducts.map((product) => {
-
-              const stock =
-                Number(product.totalStock || 0);
-
-              return (
-                <div
-                  className="low-stock-item"
-                  key={product._id}
-                >
-
-                  <div className="low-stock-icon">
-                    <FaBoxOpen />
-                  </div>
-
-                  <div className="low-stock-info">
-
-                    <strong>
-                      {product.productName ||
-                        "Unknown Product"}
-                    </strong>
-
-                    <span>
-                      {product.productCode || "-"}
-                    </span>
-
-                  </div>
-
-                  <div
-                    className={`stock-value ${getStockClass(
-                      stock
-                    )}`}
-                  >
-                    {formatNumber(stock)}
-                    <small>
-                      units
-                    </small>
-                  </div>
-
-                </div>
-              );
-            })}
-
-          </div>
-        )}
-
+        <div className="dashboard-role-badge">
+          {formatRole(role)}
+        </div>
       </div>
 
-      {/* ======================================================
-          QUICK STATS
-      ====================================================== */}
+      {/* ROLE DASHBOARD */}
 
-      <div className="dashboard-bottom-stats">
-
-        <div className="bottom-stat">
-
-          <div className="bottom-stat-icon">
-            <FaFileInvoice />
-          </div>
-
-          <div>
-            <span>Total Invoices</span>
-            <strong>
-              {formatNumber(summary.totalInvoices)}
-            </strong>
-          </div>
-
-        </div>
-
-        <div className="bottom-stat">
-
-          <div className="bottom-stat-icon">
-            <FaClock />
-          </div>
-
-          <div>
-            <span>Outstanding Today</span>
-            <strong>
-              {formatCurrency(summary.todayDue)}
-            </strong>
-          </div>
-
-        </div>
-
-        <div className="bottom-stat">
-
-          <div className="bottom-stat-icon">
-            <FaUndo />
-          </div>
-
-          <div>
-            <span>Today's Returns</span>
-            <strong>
-              {formatCurrency(summary.todayReturns)}
-            </strong>
-          </div>
-
-        </div>
-
-        <div className="bottom-stat">
-
-          <div className="bottom-stat-icon">
-            <FaCreditCard />
-          </div>
-
-          <div>
-            <span>Today's Collection</span>
-            <strong>
-              {formatCurrency(summary.todayPaid)}
-            </strong>
-          </div>
-
-        </div>
-
-      </div>
-
+      {renderRoleDashboard()}
     </div>
   );
 };
