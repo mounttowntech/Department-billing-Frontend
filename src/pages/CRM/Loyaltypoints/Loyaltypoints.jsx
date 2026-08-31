@@ -11,10 +11,7 @@ import {
   Save,
   ArrowDownLeft,
   ArrowUpRight,
-  Sliders,
   Coins,
-  Receipt,
-  User,
 } from "lucide-react";
 
 import {
@@ -48,11 +45,15 @@ const emptyForm = {
 export default function LoyaltyPoints() {
   const [records, setRecords] = useState([]);
   const [stores, setStores] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  
+  // Store-filtered customer list for the modal form dropdown
+  const [formCustomers, setFormCustomers] = useState([]);
+  
+  // Unfiltered list for toolbar filters
+  const [allCustomers, setAllCustomers] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-
 
   const [search, setSearch] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
@@ -61,7 +62,6 @@ export default function LoyaltyPoints() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -69,6 +69,9 @@ export default function LoyaltyPoints() {
 
   const [form, setForm] = useState(emptyForm);
 
+  // ======================================================
+  // LOAD MASTER DATA
+  // ======================================================
   const loadMasterData = async () => {
     try {
       const [storesRes, customersRes] = await Promise.allSettled([
@@ -91,13 +94,32 @@ export default function LoyaltyPoints() {
           customersRes.value?.data?.customers ||
           customersRes.value?.data ||
           [];
-        setCustomers(Array.isArray(d) ? d : []);
+        setAllCustomers(Array.isArray(d) ? d : []);
       }
     } catch (error) {
       console.error("Master Data Load Error:", error);
     }
   };
 
+  // Fetch store-dependent customers for the modal form
+  const fetchStoreDependentCustomers = async (storeId) => {
+    if (!storeId) {
+      setFormCustomers([]);
+      return;
+    }
+
+    try {
+      const custRes = await getCustomers({ store: storeId });
+      const d = custRes?.data?.data || custRes?.data?.customers || custRes?.data || [];
+      setFormCustomers(Array.isArray(d) ? d : []);
+    } catch (error) {
+      console.error("Failed to load store customers:", error);
+    }
+  };
+
+  // ======================================================
+  // LOAD RECORDS
+  // ======================================================
   const loadRecords = async () => {
     try {
       setLoading(true);
@@ -133,6 +155,9 @@ export default function LoyaltyPoints() {
     loadRecords();
   }, [storeFilter, customerFilter, typeFilter, fromDate, toDate]);
 
+  // ======================================================
+  // RESOLVER HELPERS
+  // ======================================================
   const getStoreName = (storeField) => {
     if (!storeField) return "—";
     if (typeof storeField === "object" && storeField !== null) {
@@ -147,13 +172,17 @@ export default function LoyaltyPoints() {
     if (typeof custField === "object" && custField !== null) {
       return custField.customerName || custField.name || "—";
     }
-    const matched = customers.find((c) => String(c._id || c.id) === String(custField));
+    const matched = allCustomers.find((c) => String(c._id || c.id) === String(custField));
     return matched?.customerName || matched?.name || custField;
   };
 
   const getCustomerPhone = (custField) => {
-    if (!custField || typeof custField !== "object") return "";
-    return custField.phone || custField.mobileNumber || "";
+    if (!custField) return "";
+    if (typeof custField === "object" && custField !== null) {
+      return custField.phone || custField.mobileNumber || "";
+    }
+    const matched = allCustomers.find((c) => String(c._id || c.id) === String(custField));
+    return matched?.phone || matched?.mobileNumber || "";
   };
 
   const clearFilters = () => {
@@ -184,7 +213,7 @@ export default function LoyaltyPoints() {
         storeName.includes(term)
       );
     });
-  }, [records, search, customers, stores]);
+  }, [records, search, allCustomers, stores]);
 
   const summary = useMemo(() => {
     let earned = 0;
@@ -208,17 +237,26 @@ export default function LoyaltyPoints() {
     };
   }, [records]);
 
+  // ======================================================
+  // MODAL HANDLERS
+  // ======================================================
   const openCreateModal = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setFormCustomers([]);
     setShowModal(true);
   };
 
-  const openEditModal = (rec) => {
+  const openEditModal = async (rec) => {
+    const storeId = rec.store?._id || rec.store || "";
+    if (storeId) {
+      await fetchStoreDependentCustomers(storeId);
+    }
+
     setEditingId(rec._id);
     setForm({
       customer: rec.customer?._id || rec.customer || "",
-      store: rec.store?._id || rec.store || "",
+      store: storeId,
       points: rec.points ?? "",
       type: rec.type || "earn",
       invoiceNo: rec.invoiceNo || "",
@@ -303,7 +341,6 @@ export default function LoyaltyPoints() {
   return (
     <div className="loyalty-page">
       <div className="loyalty-content">
-    
         <div className="loyalty-page-header">
           <div>
             <h2>Loyalty Points Ledger</h2>
@@ -316,7 +353,6 @@ export default function LoyaltyPoints() {
           </button>
         </div>
 
-    
         <div className="loyalty-toolbar">
           <div className="loyalty-search-box">
             <Search size={18} />
@@ -352,7 +388,7 @@ export default function LoyaltyPoints() {
             onChange={(e) => setCustomerFilter(e.target.value)}
           >
             <option value="">All Customers</option>
-            {customers.map((c) => (
+            {allCustomers.map((c) => (
               <option key={c._id} value={c._id}>
                 {c.customerName} ({c.phone || c.mobileNumber})
               </option>
@@ -391,9 +427,9 @@ export default function LoyaltyPoints() {
               Clear
             </button>
           )}
-
         </div>
-       <div className="loyalty-summary-grid">
+
+        <div className="loyalty-summary-grid">
           <div className="loyalty-summary-card card-blue">
             <div className="loyalty-summary-icon">
               <Award size={22} />
@@ -598,7 +634,19 @@ export default function LoyaltyPoints() {
                     <label>Store *</label>
                     <select
                       value={form.store}
-                      onChange={(e) => setForm({ ...form, store: e.target.value })}
+                      onChange={async (e) => {
+                        const storeId = e.target.value;
+                        setForm({
+                          ...form,
+                          store: storeId,
+                          customer: "",
+                        });
+                        if (storeId) {
+                          await fetchStoreDependentCustomers(storeId);
+                        } else {
+                          setFormCustomers([]);
+                        }
+                      }}
                       required
                     >
                       <option value="">Select Store</option>
@@ -614,13 +662,16 @@ export default function LoyaltyPoints() {
                     <label>Customer *</label>
                     <select
                       value={form.customer}
+                      disabled={!form.store}
                       onChange={(e) => setForm({ ...form, customer: e.target.value })}
                       required
                     >
-                      <option value="">Select Customer</option>
-                      {customers.map((c) => (
+                      <option value="">
+                        {form.store ? "Select Customer" : "Select a store first"}
+                      </option>
+                      {formCustomers.map((c) => (
                         <option key={c._id} value={c._id}>
-                          {c.customerName} ({c.phone || c.mobileNumber})
+                          {c.customerName || c.name} ({c.phone || c.mobileNumber})
                         </option>
                       ))}
                     </select>
@@ -707,7 +758,6 @@ export default function LoyaltyPoints() {
           </div>
         </div>
       )}
-
 
       {showViewModal && viewingRecord && (
         <div

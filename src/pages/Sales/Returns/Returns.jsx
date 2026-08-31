@@ -67,6 +67,7 @@ export default function SalesReturn() {
 
   const [search, setSearch] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
 
   const [showModal, setShowModal] = useState(false);
@@ -84,11 +85,14 @@ export default function SalesReturn() {
     try {
       setLoading(true);
 
-      const res = await getSalesReturns({
+      const params = {
         search: search || undefined,
         store: storeFilter || undefined,
+        warehouse: warehouseFilter || undefined,
         returnType: typeFilter || undefined,
-      });
+      };
+
+      const res = await getSalesReturns(params);
 
       setReturns(Array.isArray(res?.data) ? res.data : []);
     } catch (err) {
@@ -111,11 +115,12 @@ export default function SalesReturn() {
     }
   };
 
-  const fetchWarehouses = async () => {
+  const fetchWarehouses = async (storeId = "") => {
     try {
-      const res = await api.get("/warehouses/all");
+      const params = storeId ? { store: storeId } : {};
+      const res = await api.get("/warehouses/all", { params });
 
-      setWarehouses(res.data?.data || []);
+      setWarehouses(res.data?.data || res.data?.warehouses || []);
     } catch (err) {
       console.log(err);
     }
@@ -132,7 +137,7 @@ export default function SalesReturn() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [search, storeFilter, typeFilter]);
+  }, [search, storeFilter, warehouseFilter, typeFilter]);
 
   const filteredReturns = useMemo(() => returns, [returns]);
 
@@ -165,6 +170,7 @@ export default function SalesReturn() {
     return `RET-${String(nextNumber).padStart(4, "0")}`;
   };
 
+  // STORE & WAREHOUSE AWARE INVOICE SEARCH
   const searchInvoices = async (value) => {
     const query = value.trim();
 
@@ -176,11 +182,18 @@ export default function SalesReturn() {
     try {
       setSearchingInvoice(true);
 
-      const res = await api.get("/sales-invoices/all", {
-        params: {
-          search: query,
-        },
-      });
+      const params = {
+        search: query,
+      };
+
+      if (formData.store) {
+        params.store = formData.store;
+      }
+      if (formData.warehouse) {
+        params.warehouse = formData.warehouse;
+      }
+
+      const res = await api.get("/sales-invoices/all", { params });
 
       setInvoiceResults(res.data?.data || []);
     } catch (err) {
@@ -225,6 +238,8 @@ export default function SalesReturn() {
         customer: invoice.customer?._id || invoice.customer || "",
 
         store: invoice.store?._id || invoice.store || prev.store,
+
+        warehouse: invoice.warehouse?._id || invoice.warehouse || prev.warehouse,
       }));
 
       const rows = (invoice.items || []).map((line) => ({
@@ -281,10 +296,18 @@ export default function SalesReturn() {
   };
 
   const updateField = (key, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setFormData((prev) => {
+      const updated = { ...prev, [key]: value };
+      if (key === "store") {
+        fetchWarehouses(value);
+        updated.warehouse = "";
+        resetInvoiceState();
+      }
+      if (key === "warehouse") {
+        resetInvoiceState();
+      }
+      return updated;
+    });
   };
 
   const resetInvoiceState = () => {
@@ -292,6 +315,12 @@ export default function SalesReturn() {
     setInvoiceResults([]);
     setLoadedInvoice(null);
     setReturnItems([]);
+    setFormData((prev) => ({
+      ...prev,
+      invoice: "",
+      invoiceNo: "",
+      customer: "",
+    }));
   };
 
   const openAddModal = () => {
@@ -311,6 +340,11 @@ export default function SalesReturn() {
 
   const openEditModal = async (item) => {
     setEditingId(item._id);
+    const storeId = item.store?._id || item.store || "";
+
+    if (storeId) {
+      fetchWarehouses(storeId);
+    }
 
     setFormData({
       returnNo: item.returnNo || "",
@@ -321,7 +355,7 @@ export default function SalesReturn() {
 
       customer: item.customer?._id || item.customer || "",
 
-      store: item.store?._id || item.store || "",
+      store: storeId,
 
       warehouse: item.warehouse?._id || item.warehouse || "",
 
@@ -415,6 +449,8 @@ export default function SalesReturn() {
   };
 
   const closeModal = () => {
+    if (saving) return;
+
     setShowModal(false);
 
     setEditingId(null);
@@ -444,6 +480,11 @@ export default function SalesReturn() {
       return;
     }
 
+    if (!formData.warehouse) {
+      alert("Warehouse is required.");
+      return;
+    }
+
     if (selected.length === 0) {
       alert("Select at least one item to return, with a quantity.");
       return;
@@ -468,7 +509,7 @@ export default function SalesReturn() {
 
         store: formData.store,
 
-        warehouse: formData.warehouse || undefined,
+        warehouse: formData.warehouse,
 
         returnDate: formData.returnDate,
 
@@ -554,7 +595,7 @@ export default function SalesReturn() {
           <div>
             <h2>Sales Returns</h2>
 
-            <p>Process customer returns against existing sales invoices.</p>
+            <p>Process store-wise customer returns against existing sales invoices.</p>
           </div>
 
           <button className="primary-btn" onClick={openAddModal}>
@@ -578,7 +619,10 @@ export default function SalesReturn() {
           <select
             className="salesreturn-filter-select"
             value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
+            onChange={(e) => {
+              setStoreFilter(e.target.value);
+              setWarehouseFilter("");
+            }}
           >
             <option value="">All Stores</option>
 
@@ -587,6 +631,28 @@ export default function SalesReturn() {
                 {s.storeName}
               </option>
             ))}
+          </select>
+
+          <select
+            className="salesreturn-filter-select"
+            value={warehouseFilter}
+            onChange={(e) => setWarehouseFilter(e.target.value)}
+            disabled={!storeFilter}
+          >
+            <option value="">
+              {storeFilter ? "All Warehouses" : "Select a store first"}
+            </option>
+
+            {warehouses
+              .filter((w) => {
+                const wStoreId = w.store?._id || w.store || "";
+                return !storeFilter || String(wStoreId) === String(storeFilter);
+              })
+              .map((w) => (
+                <option key={w._id} value={w._id}>
+                  {w.warehouseName}
+                </option>
+              ))}
           </select>
 
           <select
@@ -634,7 +700,6 @@ export default function SalesReturn() {
 
             <div>
               <h2>₹{totalRefund.toLocaleString("en-IN")}</h2>
-
               <p>Total Refund Amount</p>
             </div>
           </div>
@@ -648,6 +713,7 @@ export default function SalesReturn() {
                 <th>Invoice</th>
                 <th>Customer</th>
                 <th>Store</th>
+                <th>Warehouse</th>
                 <th>Type</th>
                 <th>Items</th>
                 <th>Refund Amount</th>
@@ -659,13 +725,13 @@ export default function SalesReturn() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="empty-row">
+                  <td colSpan="10" className="empty-row">
                     Loading...
                   </td>
                 </tr>
               ) : filteredReturns.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="empty-row">
+                  <td colSpan="10" className="empty-row">
                     No Sales Returns Found
                   </td>
                 </tr>
@@ -681,6 +747,8 @@ export default function SalesReturn() {
                     <td>{item.customer?.customerName || "—"}</td>
 
                     <td>{item.store?.storeName || "—"}</td>
+
+                    <td>{item.warehouse?.warehouseName || "—"}</td>
 
                     <td>
                       <span className={`type-pill type-${item.returnType}`}>
@@ -740,7 +808,47 @@ export default function SalesReturn() {
               </div>
 
               <div className="modal-body">
-                <h4 className="section-title">Invoice</h4>
+                <h4 className="section-title">Invoice Lookup</h4>
+
+                <div className="form-grid" style={{ marginBottom: "15px" }}>
+                  <div className="form-group">
+                    <label>Store *</label>
+                    <select
+                      value={formData.store}
+                      onChange={(e) => updateField("store", e.target.value)}
+                    >
+                      <option value="">Select Store</option>
+                      {stores.map((s) => (
+                        <option key={s._id} value={s._id}>
+                          {s.storeName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Warehouse *</label>
+                    <select
+                      value={formData.warehouse}
+                      disabled={!formData.store}
+                      onChange={(e) => updateField("warehouse", e.target.value)}
+                    >
+                      <option value="">
+                        {formData.store ? "Select Warehouse" : "Select a store first"}
+                      </option>
+                      {warehouses
+                        .filter((w) => {
+                          const wStoreId = w.store?._id || w.store || "";
+                          return !formData.store || String(wStoreId) === String(formData.store);
+                        })
+                        .map((w) => (
+                          <option key={w._id} value={w._id}>
+                            {w.warehouseName}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
 
                 {!editingId && (
                   <div className="invoice-lookup">
@@ -748,23 +856,18 @@ export default function SalesReturn() {
                       <Search size={16} />
 
                       <input
-                        placeholder="Type invoice number..."
+                        placeholder={
+                          formData.store && formData.warehouse
+                            ? "Type invoice number..."
+                            : "Select store and warehouse first"
+                        }
                         value={invoiceQuery}
+                        disabled={!formData.store || !formData.warehouse}
                         onChange={handleInvoiceQueryChange}
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") {
-                            setInvoiceResults([]);
-                          }
-                        }}
                       />
 
                       {searchingInvoice && (
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            color: "#777",
-                          }}
-                        >
+                        <span style={{ fontSize: "12px", color: "#777" }}>
                           Searching...
                         </span>
                       )}
@@ -780,12 +883,9 @@ export default function SalesReturn() {
                             onClick={() => selectInvoice(inv)}
                           >
                             <strong>{inv.invoiceNo}</strong>
-
                             <span>
                               {inv.customer?.customerName || "Walk-in"}
-
                               {" · ₹"}
-
                               {Number(inv.grandTotal || 0).toLocaleString(
                                 "en-IN",
                               )}
@@ -794,23 +894,6 @@ export default function SalesReturn() {
                         ))}
                       </div>
                     )}
-
-                    {invoiceQuery.trim() &&
-                      !searchingInvoice &&
-                      invoiceResults.length === 0 && (
-                        <div className="invoice-results">
-                          <div
-                            className="invoice-result-row"
-                            style={{
-                              cursor: "default",
-                              justifyContent: "center",
-                              color: "#888",
-                            }}
-                          >
-                            No matching invoices found
-                          </div>
-                        </div>
-                      )}
                   </div>
                 )}
 
@@ -821,7 +904,6 @@ export default function SalesReturn() {
                 )}
 
                 <div className="form-grid">
-                  \
                   <div className="form-group">
                     <label>Return No</label>
 
@@ -835,6 +917,7 @@ export default function SalesReturn() {
                       }}
                     />
                   </div>
+
                   <div className="form-group">
                     <label>Return Date</label>
 
@@ -846,38 +929,7 @@ export default function SalesReturn() {
                       }
                     />
                   </div>
-                  <div className="form-group">
-                    <label>Store *</label>
 
-                    <select
-                      value={formData.store}
-                      onChange={(e) => updateField("store", e.target.value)}
-                    >
-                      <option value="">Select Store</option>
-
-                      {stores.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.storeName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Warehouse</label>
-
-                    <select
-                      value={formData.warehouse}
-                      onChange={(e) => updateField("warehouse", e.target.value)}
-                    >
-                      <option value="">Select Warehouse</option>
-
-                      {warehouses.map((w) => (
-                        <option key={w._id} value={w._id}>
-                          {w.warehouseName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                   <div className="form-group">
                     <label>Return Type</label>
 
@@ -894,6 +946,7 @@ export default function SalesReturn() {
                       ))}
                     </select>
                   </div>
+
                   <div className="form-group">
                     <label>Refund Method</label>
 
@@ -910,6 +963,7 @@ export default function SalesReturn() {
                       ))}
                     </select>
                   </div>
+
                   <div className="form-group form-group-full">
                     <label>Reason</label>
 
@@ -919,6 +973,7 @@ export default function SalesReturn() {
                       onChange={(e) => updateField("reason", e.target.value)}
                     />
                   </div>
+
                   <div className="form-group form-group-full">
                     <label>Remarks</label>
 
@@ -1050,8 +1105,6 @@ export default function SalesReturn() {
                 )}
               </div>
 
-              {/* FOOTER */}
-
               <div className="modal-footer">
                 <button className="cancel-btn" onClick={closeModal}>
                   Cancel
@@ -1067,8 +1120,8 @@ export default function SalesReturn() {
                   {saving
                     ? "Saving..."
                     : editingId
-                      ? "Update Return"
-                      : "Create Return"}
+                    ? "Update Return"
+                    : "Create Return"}
                 </button>
               </div>
             </div>

@@ -26,6 +26,7 @@ import {
 } from "../../../services/addressService";
 
 import { getStores } from "../../../services/storeService";
+import { getWarehouses } from "../../../services/warehouseService";
 import { getCustomers } from "../../../services/customerService";
 
 import "./Address.css";
@@ -40,6 +41,7 @@ const ADDRESS_LABELS = [
 
 const emptyForm = {
   store: "",
+  warehouse: "",
   customer: "",
   label: "home",
   contactName: "",
@@ -58,7 +60,12 @@ const emptyForm = {
 export default function CustomerAddress() {
   const [addresses, setAddresses] = useState([]);
   const [stores, setStores] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
   const [customers, setCustomers] = useState([]);
+
+  // Store-filtered lists for the modal form dropdowns
+  const [formWarehouses, setFormWarehouses] = useState([]);
+  const [formCustomers, setFormCustomers] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,10 +73,10 @@ export default function CustomerAddress() {
   // Filters
   const [search, setSearch] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
   const [labelFilter, setLabelFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-
 
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -78,10 +85,14 @@ export default function CustomerAddress() {
 
   const [form, setForm] = useState(emptyForm);
 
+  // ======================================================
+  // LOAD MASTER DATA
+  // ======================================================
   const loadMasterData = async () => {
     try {
-      const [storesRes, customersRes] = await Promise.allSettled([
+      const [storesRes, whRes, customersRes] = await Promise.allSettled([
         getStores(),
+        getWarehouses(),
         getCustomers(),
       ]);
 
@@ -92,6 +103,15 @@ export default function CustomerAddress() {
           storesRes.value?.data ||
           [];
         setStores(Array.isArray(d) ? d : []);
+      }
+
+      if (whRes.status === "fulfilled") {
+        const d =
+          whRes.value?.data?.data ||
+          whRes.value?.data?.warehouses ||
+          whRes.value?.data ||
+          [];
+        setWarehouses(Array.isArray(d) ? d : []);
       }
 
       if (customersRes.status === "fulfilled") {
@@ -107,11 +127,33 @@ export default function CustomerAddress() {
     }
   };
 
+  // Fetch store-dependent warehouses and customers for the modal form
+  const fetchStoreDependentData = async (storeId) => {
+    if (!storeId) {
+      setFormWarehouses([]);
+      setFormCustomers([]);
+      return;
+    }
+
+    try {
+      const [whRes, custRes] = await Promise.all([
+        getWarehouses({ store: storeId }),
+        getCustomers({ store: storeId }),
+      ]);
+
+      setFormWarehouses(whRes?.data?.data || whRes?.data?.warehouses || whRes?.data || []);
+      setFormCustomers(custRes?.data?.data || custRes?.data?.customers || custRes?.data || []);
+    } catch (error) {
+      console.error("Failed to load store dependent data:", error);
+    }
+  };
+
   const loadAddresses = async () => {
     try {
       setLoading(true);
       const params = {};
       if (storeFilter) params.store = storeFilter;
+      if (warehouseFilter) params.warehouse = warehouseFilter;
       if (customerFilter) params.customer = customerFilter;
       if (labelFilter) params.label = labelFilter;
       if (statusFilter) params.status = statusFilter;
@@ -138,8 +180,11 @@ export default function CustomerAddress() {
 
   useEffect(() => {
     loadAddresses();
-  }, [storeFilter, customerFilter, labelFilter, statusFilter]);
+  }, [storeFilter, warehouseFilter, customerFilter, labelFilter, statusFilter]);
 
+  // ======================================================
+  // RESOLVER HELPERS
+  // ======================================================
   const getStoreName = (storeField) => {
     if (!storeField) return "—";
     if (typeof storeField === "object" && storeField !== null) {
@@ -147,6 +192,15 @@ export default function CustomerAddress() {
     }
     const matched = stores.find((s) => String(s._id || s.id) === String(storeField));
     return matched?.storeName || matched?.name || storeField;
+  };
+
+  const getWarehouseName = (whField) => {
+    if (!whField) return "—";
+    if (typeof whField === "object" && whField !== null) {
+      return whField.warehouseName || whField.name || "—";
+    }
+    const matched = warehouses.find((w) => String(w._id || w.id) === String(whField));
+    return matched?.warehouseName || matched?.name || "—";
   };
 
   const getCustomerName = (custField) => {
@@ -161,6 +215,7 @@ export default function CustomerAddress() {
   const clearFilters = () => {
     setSearch("");
     setStoreFilter("");
+    setWarehouseFilter("");
     setCustomerFilter("");
     setLabelFilter("");
     setStatusFilter("");
@@ -208,16 +263,27 @@ export default function CustomerAddress() {
     };
   }, [addresses]);
 
+  // ======================================================
+  // MODAL HANDLERS
+  // ======================================================
   const openCreateModal = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setFormWarehouses([]);
+    setFormCustomers([]);
     setShowModal(true);
   };
 
-  const openEditModal = (addr) => {
+  const openEditModal = async (addr) => {
+    const storeId = addr.store?._id || addr.store || "";
+    if (storeId) {
+      await fetchStoreDependentData(storeId);
+    }
+
     setEditingId(addr._id);
     setForm({
-      store: addr.store?._id || addr.store || "",
+      store: storeId,
+      warehouse: addr.warehouse?._id || addr.warehouse || "",
       customer: addr.customer?._id || addr.customer || "",
       label: addr.label || "home",
       contactName: addr.contactName || "",
@@ -272,6 +338,7 @@ export default function CustomerAddress() {
       setSaving(true);
       const payload = {
         store: form.store,
+        warehouse: form.warehouse || undefined,
         customer: form.customer,
         label: form.label,
         contactName: form.contactName?.trim() || "",
@@ -399,6 +466,19 @@ export default function CustomerAddress() {
 
           <select
             className="address-filter-select"
+            value={warehouseFilter}
+            onChange={(e) => setWarehouseFilter(e.target.value)}
+          >
+            <option value="">All Warehouses</option>
+            {warehouses.map((w) => (
+              <option key={w._id} value={w._id}>
+                {w.warehouseName || w.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="address-filter-select"
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
           >
@@ -433,14 +513,15 @@ export default function CustomerAddress() {
             <option value="inactive">Inactive</option>
           </select>
 
-          {(search || storeFilter || customerFilter || labelFilter || statusFilter) && (
+          {(search || storeFilter || warehouseFilter || customerFilter || labelFilter || statusFilter) && (
             <button type="button" className="address-clear-btn" onClick={clearFilters}>
               Clear
             </button>
           )}
 
         </div>
-  <div className="address-summary-grid">
+
+        <div className="address-summary-grid">
           <div className="address-summary-card card-blue">
             <div className="address-summary-icon">
               <MapPin size={22} />
@@ -559,7 +640,6 @@ export default function CustomerAddress() {
 
                     <td>
                       <div className="address-actions">
-                        {/* View */}
                         <button
                           type="button"
                           className="address-action-btn view-btn"
@@ -640,7 +720,21 @@ export default function CustomerAddress() {
                     <label>Store *</label>
                     <select
                       value={form.store}
-                      onChange={(e) => setForm({ ...form, store: e.target.value })}
+                      onChange={async (e) => {
+                        const storeId = e.target.value;
+                        setForm({
+                          ...form,
+                          store: storeId,
+                          warehouse: "",
+                          customer: "",
+                        });
+                        if (storeId) {
+                          await fetchStoreDependentData(storeId);
+                        } else {
+                          setFormWarehouses([]);
+                          setFormCustomers([]);
+                        }
+                      }}
                       required
                     >
                       <option value="">Select Store</option>
@@ -653,16 +747,37 @@ export default function CustomerAddress() {
                   </div>
 
                   <div className="address-form-group">
+                    <label>Warehouse (Optional)</label>
+                    <select
+                      value={form.warehouse}
+                      disabled={!form.store}
+                      onChange={(e) => setForm({ ...form, warehouse: e.target.value })}
+                    >
+                      <option value="">
+                        {form.store ? "None / Main Store" : "Select a store first"}
+                      </option>
+                      {formWarehouses.map((w) => (
+                        <option key={w._id} value={w._id}>
+                          {w.warehouseName || w.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="address-form-group">
                     <label>Customer *</label>
                     <select
                       value={form.customer}
+                      disabled={!form.store}
                       onChange={(e) => setForm({ ...form, customer: e.target.value })}
                       required
                     >
-                      <option value="">Select Customer</option>
-                      {customers.map((c) => (
+                      <option value="">
+                        {form.store ? "Select Customer" : "Select a store first"}
+                      </option>
+                      {formCustomers.map((c) => (
                         <option key={c._id} value={c._id}>
-                          {c.customerName} ({c.phone})
+                          {c.customerName || c.name} ({c.phone})
                         </option>
                       ))}
                     </select>
@@ -683,7 +798,7 @@ export default function CustomerAddress() {
                     </select>
                   </div>
 
-                  <div className="address-form-group address-checkbox-group">
+                  <div className="address-form-group address-checkbox-group address-full">
                     <label className="address-checkbox-label">
                       <input
                         type="checkbox"

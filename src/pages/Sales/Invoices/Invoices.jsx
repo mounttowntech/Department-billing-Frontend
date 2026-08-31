@@ -87,10 +87,15 @@ const emptyInvoice = () => ({
 export default function SalesInvoice() {
   const [invoices, setInvoices] = useState([]);
   const [stores, setStores] = useState([]);
-  const [warehouses, setWarehouses] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [variants, setVariants] = useState([]);
+  
+  // Toolbar dropdown lists
+  const [toolbarWarehouses, setToolbarWarehouses] = useState([]);
+
+  // Store & Warehouse filtered lists for the modal form dropdowns
+  const [formWarehouses, setFormWarehouses] = useState([]);
+  const [formCustomers, setFormCustomers] = useState([]);
+  const [formProducts, setFormProducts] = useState([]);
+  const [formVariants, setFormVariants] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -101,6 +106,7 @@ export default function SalesInvoice() {
 
   const [search, setSearch] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [billingTypeFilter, setBillingTypeFilter] = useState("");
 
@@ -115,8 +121,8 @@ export default function SalesInvoice() {
 
   const selectedCustomerDetails = useMemo(() => {
     if (!formData.customer) return null;
-    return customers.find((c) => c._id === formData.customer) || null;
-  }, [formData.customer, customers]);
+    return formCustomers.find((c) => c._id === formData.customer) || null;
+  }, [formData.customer, formCustomers]);
 
   const fetchInvoices = async () => {
     try {
@@ -126,6 +132,7 @@ export default function SalesInvoice() {
         limit: PAGE_LIMIT,
         search: search || undefined,
         store: storeFilter || undefined,
+        warehouse: warehouseFilter || undefined,
         paymentStatus: paymentStatusFilter || undefined,
         billingType: billingTypeFilter || undefined,
       });
@@ -149,40 +156,72 @@ export default function SalesInvoice() {
     }
   };
 
-  const fetchDropdownData = async () => {
+  const fetchGlobalStoresAndWarehouses = async () => {
     try {
-      const [productRes, variantRes, storeRes, warehouseRes, customerRes] =
-        await Promise.all([
-          getProducts(),
-          getVariants(),
-          getStores(),
-          getWarehouses(),
-          getCustomers(),
-        ]);
-
-      if (productRes?.data?.success) {
-        setProducts(productRes.data.data || []);
-      }
-      if (variantRes?.data?.success) {
-        setVariants(variantRes.data.data || []);
-      }
+      const [storeRes, whRes] = await Promise.all([
+        getStores(),
+        getWarehouses(),
+      ]);
       if (storeRes?.success) {
         setStores(storeRes.data || []);
       }
-      if (warehouseRes?.success) {
-        setWarehouses(warehouseRes.data || []);
-      }
-      if (customerRes?.data) {
-        const custData = customerRes.data.data || customerRes.data || [];
-        setCustomers(Array.isArray(custData) ? custData : []);
+      if (whRes?.data || whRes?.success) {
+        setToolbarWarehouses(whRes?.data?.data || whRes?.data || []);
       }
     } catch (err) {
-      console.error("Dropdown data error:", err);
+      console.error("Store/Warehouse global data error:", err);
+    }
+  };
+
+  // Fetch store-dependent lists for the sales invoice modal form
+  const fetchStoreDependentData = async (storeId) => {
+    if (!storeId) {
+      setFormWarehouses([]);
+      setFormCustomers([]);
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const [warehouseRes, customerRes] = await Promise.all([
+        getWarehouses({ store: storeId }),
+        getCustomers({ store: storeId }),
+      ]);
+
+      setFormWarehouses(warehouseRes?.data || warehouseRes?.data?.data || []);
+      setFormCustomers(customerRes?.data?.data || customerRes?.data || []);
+      setFormProducts([]);
+      setFormVariants([]);
+    } catch (err) {
+      console.error("Failed to load store dependent data:", err);
+    }
+  };
+
+  // Fetch warehouse-dependent products and variants inside the modal form
+  const fetchWarehouseDependentProducts = async (storeId, warehouseId) => {
+    if (!storeId || !warehouseId) {
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const params = { store: storeId, warehouse: warehouseId };
+      const [productRes, variantRes] = await Promise.all([
+        getProducts(params),
+        getVariants(params),
+      ]);
+
+      setFormProducts(productRes?.data?.data || productRes?.data || []);
+      setFormVariants(variantRes?.data?.data || variantRes?.data || []);
+    } catch (err) {
+      console.error("Failed to load warehouse dependent products:", err);
     }
   };
 
   useEffect(() => {
-    fetchDropdownData();
+    fetchGlobalStoresAndWarehouses();
   }, []);
 
   useEffect(() => {
@@ -190,11 +229,11 @@ export default function SalesInvoice() {
       fetchInvoices();
     }, 300);
     return () => clearTimeout(timer);
-  }, [page, search, storeFilter, paymentStatusFilter, billingTypeFilter]);
+  }, [page, search, storeFilter, warehouseFilter, paymentStatusFilter, billingTypeFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, storeFilter, paymentStatusFilter, billingTypeFilter]);
+  }, [search, storeFilter, warehouseFilter, paymentStatusFilter, billingTypeFilter]);
 
   const paidCount = invoices.filter(
     (invoice) => invoice.paymentStatus === "Paid",
@@ -209,15 +248,23 @@ export default function SalesInvoice() {
     0,
   );
 
-  const updateField = (key, value) => {
-    setFormData((prev) => {
-      const updated = { ...prev, [key]: value };
-      // If store changes, reset customer selection if it doesn't match the new store
-      if (key === "store") {
-        updated.customer = "";
-      }
-      return updated;
-    });
+  const updateField = async (key, value) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+
+    if (key === "store") {
+      await fetchStoreDependentData(value);
+      setFormData((prev) => ({
+        ...prev,
+        customer: "",
+        warehouse: "",
+      }));
+      setItems([emptyItem()]);
+    }
+
+    if (key === "warehouse") {
+      await fetchWarehouseDependentProducts(formData.store, value);
+      setItems([emptyItem()]);
+    }
   };
 
   // --- Auto-Check Promotional Offer ---
@@ -309,7 +356,7 @@ export default function SalesInvoice() {
     setFormData((prev) => ({
       ...prev,
       customerType: value,
-      customer: value === "walk_in" ? "" : "",
+      customer: "",
     }));
   };
 
@@ -327,7 +374,7 @@ export default function SalesInvoice() {
   };
 
   const handleItemProductChange = (index, productId) => {
-    const product = products.find((p) => p._id === productId);
+    const product = formProducts.find((p) => p._id === productId);
     setItems((prev) =>
       prev.map((item, i) =>
         i === index
@@ -350,7 +397,7 @@ export default function SalesInvoice() {
   };
 
   const handleItemVariantChange = (index, variantId) => {
-    const variant = variants.find((v) => v._id === variantId);
+    const variant = formVariants.find((v) => v._id === variantId);
     setItems((prev) =>
       prev.map((item, i) =>
         i === index
@@ -371,16 +418,16 @@ export default function SalesInvoice() {
 
   const variantsForItemProduct = (productId) => {
     if (!productId) return [];
-    return variants.filter((v) => (v.product?._id || v.product) === productId);
+    return formVariants.filter((v) => (v.product?._id || v.product) === productId);
   };
 
   const availableStockForItem = (item) => {
     if (item.variant) {
-      const variant = variants.find((v) => v._id === item.variant);
+      const variant = formVariants.find((v) => v._id === item.variant);
       return variant ? Number(variant.currentStock || 0) : null;
     }
     if (item.product) {
-      const product = products.find((p) => p._id === item.product);
+      const product = formProducts.find((p) => p._id === item.product);
       return product ? Number(product.totalStock || 0) : null;
     }
     return null;
@@ -470,17 +517,31 @@ export default function SalesInvoice() {
       invoiceNo: generateInvoiceNumber(),
     });
     setItems([emptyItem()]);
+    setFormWarehouses([]);
+    setFormCustomers([]);
+    setFormProducts([]);
+    setFormVariants([]);
     setAppliedOfferName("");
     setShowModal(true);
   };
 
-  const openEditModal = (invoice) => {
+  const openEditModal = async (invoice) => {
     setEditingId(invoice._id);
+    const storeId = invoice.store?._id || invoice.store || "";
+    const whId = invoice.warehouse?._id || invoice.warehouse || "";
+
+    if (storeId) {
+      await fetchStoreDependentData(storeId);
+      if (whId) {
+        await fetchWarehouseDependentProducts(storeId, whId);
+      }
+    }
+
     setFormData({
       invoiceNo: invoice.invoiceNo || "",
       customer: invoice.customer?._id || invoice.customer || "",
-      store: invoice.store?._id || invoice.store || "",
-      warehouse: invoice.warehouse?._id || invoice.warehouse || "",
+      store: storeId,
+      warehouse: whId,
       invoiceDate: invoice.invoiceDate
         ? new Date(invoice.invoiceDate).toISOString().slice(0, 10)
         : new Date().toISOString().slice(0, 10),
@@ -522,6 +583,10 @@ export default function SalesInvoice() {
     setEditingId(null);
     setFormData(emptyInvoice());
     setItems([emptyItem()]);
+    setFormWarehouses([]);
+    setFormCustomers([]);
+    setFormProducts([]);
+    setFormVariants([]);
     setAppliedOfferName("");
   };
 
@@ -565,6 +630,10 @@ export default function SalesInvoice() {
     }
     if (!formData.store) {
       alert("Store is required.");
+      return;
+    }
+    if (!formData.warehouse) {
+      alert("Warehouse is required.");
       return;
     }
 
@@ -624,12 +693,7 @@ export default function SalesInvoice() {
           : "Sales Invoice created successfully.",
       );
 
-      setShowModal(false);
-      setEditingId(null);
-      setFormData(emptyInvoice());
-      setItems([emptyItem()]);
-      setAppliedOfferName("");
-
+      closeModal();
       await fetchInvoices();
     } catch (err) {
       console.error("Sales Invoice save error:", err);
@@ -665,7 +729,7 @@ export default function SalesInvoice() {
         <div className="page-header">
           <div>
             <h2>Sales Invoices</h2>
-            <p>Create and manage customer sales invoices.</p>
+            <p>Create and manage store-wise customer sales invoices.</p>
           </div>
 
           <button className="primary-btn" onClick={openAddModal}>
@@ -688,7 +752,10 @@ export default function SalesInvoice() {
           <select
             className="invoice-filter-select"
             value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
+            onChange={(e) => {
+              setStoreFilter(e.target.value);
+              setWarehouseFilter("");
+            }}
           >
             <option value="">All Stores</option>
             {stores.map((store) => (
@@ -696,6 +763,24 @@ export default function SalesInvoice() {
                 {store.storeName}
               </option>
             ))}
+          </select>
+
+          <select
+            className="invoice-filter-select"
+            value={warehouseFilter}
+            onChange={(e) => setWarehouseFilter(e.target.value)}
+            disabled={!storeFilter}
+          >
+            <option value="">
+              {storeFilter ? "All Warehouses" : "Select a store first"}
+            </option>
+            {toolbarWarehouses
+              .filter((w) => String(w.store?._id || w.store) === String(storeFilter))
+              .map((w) => (
+                <option key={w._id} value={w._id}>
+                  {w.warehouseName}
+                </option>
+              ))}
           </select>
 
           <select
@@ -772,6 +857,7 @@ export default function SalesInvoice() {
                 <th>Invoice</th>
                 <th>Customer</th>
                 <th>Store</th>
+                <th>Warehouse</th>
                 <th>Items</th>
                 <th>Grand Total</th>
                 <th>Payment</th>
@@ -782,13 +868,13 @@ export default function SalesInvoice() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="empty-row">
+                  <td colSpan="8" className="empty-row">
                     Loading...
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="empty-row">
+                  <td colSpan="8" className="empty-row">
                     No Sales Invoices Found
                   </td>
                 </tr>
@@ -816,6 +902,7 @@ export default function SalesInvoice() {
                         (invoice.customerType === "walk_in" ? "Walk-In Customer" : "—")}
                     </td>
                     <td>{invoice.store?.storeName || "—"}</td>
+                    <td>{invoice.warehouse?.warehouseName || "—"}</td>
                     <td>{invoice.itemCount ?? invoice.items?.length ?? 0}</td>
                     <td>
                       <strong>
@@ -922,13 +1009,16 @@ export default function SalesInvoice() {
                   </div>
 
                   <div className="form-group">
-                    <label>Warehouse</label>
+                    <label>Warehouse *</label>
                     <select
                       value={formData.warehouse}
+                      disabled={!formData.store}
                       onChange={(e) => updateField("warehouse", e.target.value)}
                     >
-                      <option value="">Select Warehouse</option>
-                      {warehouses.map((warehouse) => (
+                      <option value="">
+                        {formData.store ? "Select Warehouse" : "Select a store first"}
+                      </option>
+                      {formWarehouses.map((warehouse) => (
                         <option key={warehouse._id} value={warehouse._id}>
                           {warehouse.warehouseName}
                         </option>
@@ -968,7 +1058,7 @@ export default function SalesInvoice() {
                       </option>
                       {formData.customerType !== "walk_in" &&
                         formData.store &&
-                        customers
+                        formCustomers
                           .filter((customer) => {
                             const cType = customer.customerType || "";
                             const matchesType =
@@ -1145,12 +1235,19 @@ export default function SalesInvoice() {
                             <td>
                               <select
                                 value={item.product}
+                                disabled={!formData.warehouse}
                                 onChange={(e) =>
                                   handleItemProductChange(index, e.target.value)
                                 }
                               >
-                                <option value="">Select Product</option>
-                                {products.map((product) => (
+                                <option value="">
+                                  {!formData.store
+                                    ? "Select a store first"
+                                    : !formData.warehouse
+                                    ? "Select a warehouse first"
+                                    : "Select Product"}
+                                </option>
+                                {formProducts.map((product) => (
                                   <option key={product._id} value={product._id}>
                                     {product.productName}
                                   </option>
@@ -1281,9 +1378,9 @@ export default function SalesInvoice() {
                   type="button"
                   className="add-item-btn"
                   onClick={addItemRow}
+                  disabled={!formData.warehouse}
                 >
-                  <Plus size={14} />
-                  Add Item
+                  <Plus size={14} /> Add Item
                 </button>
 
                 <div className="totals-box">
@@ -1326,9 +1423,7 @@ export default function SalesInvoice() {
 
                   <div className="totals-row">
                     <span>Payment Status</span>
-                    <span
-                      className={`badge ${totalsPreview.paymentStatus.toLowerCase()}`}
-                    >
+                    <span className={`badge ${totalsPreview.paymentStatus.toLowerCase()}`}>
                       {totalsPreview.paymentStatus}
                     </span>
                   </div>
@@ -1351,11 +1446,7 @@ export default function SalesInvoice() {
               </div>
 
               <div className="modal-footer">
-                <button
-                  className="cancel-btn"
-                  onClick={closeModal}
-                  disabled={saving}
-                >
+                <button className="cancel-btn" onClick={closeModal}>
                   Cancel
                 </button>
 
@@ -1368,9 +1459,9 @@ export default function SalesInvoice() {
                   {saving
                     ? "Saving..."
                     : editingId
-                      ? "Update Invoice"
-                      : "Create Invoice"}
-                  </button>
+                    ? "Update Invoice"
+                    : "Create Invoice"}
+                </button>
               </div>
             </div>
           </div>

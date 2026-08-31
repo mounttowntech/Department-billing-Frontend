@@ -2,10 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import "./Dashboard.css";
 import { getDashboardOverview } from "../../services/dashboardService";
 
-/* =========================================================
-   HELPERS
-========================================================= */
-
 const formatCurrency = (value) => {
   const amount = Number(value || 0);
 
@@ -47,10 +43,6 @@ const formatRole = (role) => {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
-/* =========================================================
-   STAT CARD
-========================================================= */
-
 const StatCard = ({
   icon,
   title,
@@ -85,10 +77,6 @@ const StatCard = ({
   );
 };
 
-/* =========================================================
-   SECTION HEADER
-========================================================= */
-
 const SectionHeader = ({
   title,
   subtitle,
@@ -105,10 +93,6 @@ const SectionHeader = ({
     </div>
   );
 };
-
-/* =========================================================
-   RECENT INVOICES
-========================================================= */
 
 const RecentInvoices = ({
   invoices = [],
@@ -208,10 +192,6 @@ const RecentInvoices = ({
   );
 };
 
-/* =========================================================
-   LOW STOCK
-========================================================= */
-
 const LowStockProducts = ({
   products = [],
 }) => {
@@ -278,10 +258,6 @@ const LowStockProducts = ({
     </div>
   );
 };
-
-/* =========================================================
-   ADMIN / MANAGER
-========================================================= */
 
 const AdminManagerDashboard = ({
   data,
@@ -359,10 +335,6 @@ const AdminManagerDashboard = ({
   );
 };
 
-/* =========================================================
-   CASHIER
-========================================================= */
-
 const CashierDashboard = ({
   data,
 }) => {
@@ -419,9 +391,6 @@ const CashierDashboard = ({
   );
 };
 
-/* =========================================================
-   SALES EXECUTIVE
-========================================================= */
 
 const SalesExecutiveDashboard = ({
   data,
@@ -481,10 +450,6 @@ const SalesExecutiveDashboard = ({
   );
 };
 
-/* =========================================================
-   MAIN DASHBOARD
-========================================================= */
-
 const Dashboard = () => {
   const [dashboard, setDashboard] =
     useState(null);
@@ -495,9 +460,6 @@ const Dashboard = () => {
   const [error, setError] =
     useState("");
 
-  /* =======================================================
-     LOAD DASHBOARD
-  ======================================================= */
 
   useEffect(() => {
     let mounted = true;
@@ -548,10 +510,6 @@ const Dashboard = () => {
     };
   }, []);
 
-  /* =======================================================
-     USER INFORMATION
-  ======================================================= */
-
   const user = dashboard?.user;
 
   const role = useMemo(() => {
@@ -575,10 +533,6 @@ const Dashboard = () => {
     user?.lastName
   );
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
-
   if (loading) {
     return (
       <div className="dashboard-page">
@@ -591,9 +545,6 @@ const Dashboard = () => {
     );
   }
 
-  /* =======================================================
-     ERROR
-  ======================================================= */
 
   if (error) {
     return (
@@ -622,10 +573,6 @@ const Dashboard = () => {
     );
   }
 
-  /* =======================================================
-     NO DATA
-  ======================================================= */
-
   if (!dashboard) {
     return (
       <div className="dashboard-page">
@@ -641,9 +588,6 @@ const Dashboard = () => {
     );
   }
 
-  /* =======================================================
-     ACCESS CHECK
-  ======================================================= */
 
   if (!dashboard.success) {
     return (
@@ -666,9 +610,6 @@ const Dashboard = () => {
     );
   }
 
-  /* =======================================================
-     ROLE DASHBOARD
-  ======================================================= */
 
   const renderRoleDashboard = () => {
     switch (role) {
@@ -726,10 +667,6 @@ const Dashboard = () => {
     }
   };
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
-
   return (
     <div className="dashboard-page">
       {/* USER / STORE BAR */}
@@ -758,8 +695,6 @@ const Dashboard = () => {
           {formatRole(role)}
         </div>
       </div>
-
-      {/* ROLE DASHBOARD */}
 
       {renderRoleDashboard()}
     </div>

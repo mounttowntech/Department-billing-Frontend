@@ -57,14 +57,18 @@ const emptyForm = {
 export default function StockTransfer() {
   const [transfers, setTransfers] = useState([]);
   const [stores, setStores] = useState([]);
-  const [warehouses, setWarehouses] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [variants, setVariants] = useState([]);
+
+  const [formWarehouses, setFormWarehouses] = useState([]);
+  const [formProducts, setFormProducts] = useState([]);
+  const [formVariants, setFormVariants] = useState([]);
+
+  const [allWarehouses, setAllWarehouses] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [allVariants, setAllVariants] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Filters
   const [search, setSearch] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -73,7 +77,6 @@ export default function StockTransfer() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // Modals
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -81,9 +84,6 @@ export default function StockTransfer() {
 
   const [form, setForm] = useState(emptyForm);
 
-  // ======================================================
-  // LOAD MASTER DATA
-  // ======================================================
   const loadMasterData = async () => {
     try {
       const [storesRes, whRes, prodRes, varRes] = await Promise.allSettled([
@@ -108,7 +108,7 @@ export default function StockTransfer() {
           whRes.value?.data?.warehouses ||
           whRes.value?.data ||
           [];
-        setWarehouses(Array.isArray(d) ? d : []);
+        setAllWarehouses(Array.isArray(d) ? d : []);
       }
 
       if (prodRes.status === "fulfilled") {
@@ -117,7 +117,7 @@ export default function StockTransfer() {
           prodRes.value?.data?.products ||
           prodRes.value?.data ||
           [];
-        setProducts(Array.isArray(d) ? d : []);
+        setAllProducts(Array.isArray(d) ? d : []);
       }
 
       if (varRes.status === "fulfilled") {
@@ -126,16 +126,52 @@ export default function StockTransfer() {
           varRes.value?.data?.variants ||
           varRes.value?.data ||
           [];
-        setVariants(Array.isArray(d) ? d : []);
+        setAllVariants(Array.isArray(d) ? d : []);
       }
     } catch (error) {
       console.error("Master Data Load Error:", error);
     }
   };
 
-  // ======================================================
-  // LOAD TRANSFERS
-  // ======================================================
+  const fetchStoreDependentData = async (storeId) => {
+    if (!storeId) {
+      setFormWarehouses([]);
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const whRes = await getWarehouses({ store: storeId });
+      setFormWarehouses(whRes?.data?.data || whRes?.data?.warehouses || whRes?.data || []);
+      setFormProducts([]);
+      setFormVariants([]);
+    } catch (error) {
+      console.error("Failed to load store dependent data:", error);
+    }
+  };
+
+  const fetchWarehouseDependentProducts = async (storeId, warehouseId) => {
+    if (!storeId || !warehouseId) {
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const params = { store: storeId, warehouse: warehouseId };
+      const [prodRes, varRes] = await Promise.all([
+        getProducts(params),
+        getVariants(params),
+      ]);
+
+      setFormProducts(prodRes?.data?.data || prodRes?.data || []);
+      setFormVariants(varRes?.data?.data || varRes?.data || []);
+    } catch (error) {
+      console.error("Failed to load warehouse dependent products:", error);
+    }
+  };
+
   const loadTransfers = async () => {
     try {
       setLoading(true);
@@ -173,9 +209,6 @@ export default function StockTransfer() {
     loadTransfers();
   }, [storeFilter, statusFilter, fromWhFilter, toWhFilter, fromDate, toDate]);
 
-  // ======================================================
-  // RESOLVER HELPERS
-  // ======================================================
   const getStoreName = (storeField) => {
     if (!storeField) return "—";
     if (typeof storeField === "object" && storeField !== null) {
@@ -190,7 +223,7 @@ export default function StockTransfer() {
     if (typeof whField === "object" && whField !== null) {
       return whField.warehouseName || whField.name || "—";
     }
-    const matched = warehouses.find((w) => String(w._id || w.id) === String(whField));
+    const matched = allWarehouses.find((w) => String(w._id || w.id) === String(whField));
     return matched?.warehouseName || matched?.name || "—";
   };
 
@@ -199,13 +232,10 @@ export default function StockTransfer() {
     if (typeof pField === "object" && pField !== null) {
       return pField.productName || pField.name || "—";
     }
-    const matched = products.find((p) => String(p._id || p.id) === String(pField));
+    const matched = allProducts.find((p) => String(p._id || p.id) === String(pField));
     return matched?.productName || matched?.name || "—";
   };
 
-  // ======================================================
-  // CLEAR FILTERS & SEARCH
-  // ======================================================
   const clearFilters = () => {
     setSearch("");
     setStoreFilter("");
@@ -233,7 +263,7 @@ export default function StockTransfer() {
         toWh.includes(term)
       );
     });
-  }, [transfers, search, stores, warehouses]);
+  }, [transfers, search, stores, allWarehouses]);
 
   const summary = useMemo(() => {
     const completed = transfers.filter((t) => t.status === "completed").length;
@@ -254,9 +284,6 @@ export default function StockTransfer() {
     };
   }, [transfers]);
 
-  // ======================================================
-  // MODAL HANDLERS
-  // ======================================================
   const openCreateModal = () => {
     setEditingId(null);
     setForm({
@@ -264,20 +291,33 @@ export default function StockTransfer() {
       transferNo: generateTransferNo(),
       items: [emptyItem()],
     });
+    setFormWarehouses([]);
+    setFormProducts([]);
+    setFormVariants([]);
     setShowModal(true);
   };
 
-  const openEditModal = (transfer) => {
+  const openEditModal = async (transfer) => {
     if (transfer.status === "cancelled") {
       alert("Cancelled stock transfers cannot be edited.");
       return;
     }
 
+    const storeId = transfer.store?._id || transfer.store || "";
+    const fromWhId = transfer.fromWarehouse?._id || transfer.fromWarehouse || "";
+
+    if (storeId) {
+      await fetchStoreDependentData(storeId);
+      if (fromWhId) {
+        await fetchWarehouseDependentProducts(storeId, fromWhId);
+      }
+    }
+
     setEditingId(transfer._id);
     setForm({
       transferNo: transfer.transferNo,
-      store: transfer.store?._id || transfer.store || "",
-      fromWarehouse: transfer.fromWarehouse?._id || transfer.fromWarehouse || "",
+      store: storeId,
+      fromWarehouse: fromWhId,
       toWarehouse: transfer.toWarehouse?._id || transfer.toWarehouse || "",
       remarks: transfer.remarks || "",
       items: (transfer.items || []).map((item) => ({
@@ -295,9 +335,6 @@ export default function StockTransfer() {
     setShowViewModal(true);
   };
 
-  // ======================================================
-  // LINE ITEM HANDLERS
-  // ======================================================
   const handleItemProductChange = (index, productId) => {
     setForm((prev) => ({
       ...prev,
@@ -315,7 +352,7 @@ export default function StockTransfer() {
   };
 
   const handleItemVariantChange = (index, variantId) => {
-    const variantObj = variants.find((v) => String(v._id || v.id) === String(variantId));
+    const variantObj = formVariants.find((v) => String(v._id || v.id) === String(variantId));
     setForm((prev) => ({
       ...prev,
       items: prev.items.map((item, i) =>
@@ -354,10 +391,6 @@ export default function StockTransfer() {
       items: prev.items.filter((_, i) => i !== index),
     }));
   };
-
-  // ======================================================
-  // SUBMISSION & ACTIONS
-  // ======================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -484,8 +517,6 @@ export default function StockTransfer() {
           </button>
         </div>
 
-
-
         <div className="stocktransfer-toolbar">
           <div className="stocktransfer-search-box">
             <Search size={18} />
@@ -508,7 +539,11 @@ export default function StockTransfer() {
           <select
             className="stocktransfer-filter-select"
             value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
+            onChange={(e) => {
+              setStoreFilter(e.target.value);
+              setFromWhFilter("");
+              setToWhFilter("");
+            }}
           >
             <option value="">All Stores</option>
             {stores.map((s) => (
@@ -522,26 +557,36 @@ export default function StockTransfer() {
             className="stocktransfer-filter-select"
             value={fromWhFilter}
             onChange={(e) => setFromWhFilter(e.target.value)}
+            disabled={!storeFilter}
           >
-            <option value="">From Warehouse</option>
-            {warehouses.map((w) => (
-              <option key={w._id} value={w._id}>
-                {w.warehouseName || w.name}
-              </option>
-            ))}
+            <option value="">
+              {storeFilter ? "From Warehouse" : "Select a store first"}
+            </option>
+            {allWarehouses
+              .filter((w) => !storeFilter || String(w.store?._id || w.store) === String(storeFilter))
+              .map((w) => (
+                <option key={w._id} value={w._id}>
+                  {w.warehouseName || w.name}
+                </option>
+              ))}
           </select>
 
           <select
             className="stocktransfer-filter-select"
             value={toWhFilter}
             onChange={(e) => setToWhFilter(e.target.value)}
+            disabled={!storeFilter}
           >
-            <option value="">To Warehouse</option>
-            {warehouses.map((w) => (
-              <option key={w._id} value={w._id}>
-                {w.warehouseName || w.name}
-              </option>
-            ))}
+            <option value="">
+              {storeFilter ? "To Warehouse" : "Select a store first"}
+            </option>
+            {allWarehouses
+              .filter((w) => !storeFilter || String(w.store?._id || w.store) === String(storeFilter))
+              .map((w) => (
+                <option key={w._id} value={w._id}>
+                  {w.warehouseName || w.name}
+                </option>
+              ))}
           </select>
 
           <select
@@ -584,9 +629,8 @@ export default function StockTransfer() {
               Clear
             </button>
           )}
-
-
         </div>
+
         <div className="stocktransfer-summary-grid">
           <div className="stocktransfer-summary-card card-blue">
             <div className="stocktransfer-summary-icon">
@@ -711,51 +755,47 @@ export default function StockTransfer() {
                     </td>
 
                     <td>
-                    <div className="stocktransfer-actions">
-  {/* View */}
-  <button
-    type="button"
-    className="stocktransfer-action-btn view-btn"
-    title="View Details"
-    onClick={() => openViewModal(item)}
-  >
-    <Eye size={15} strokeWidth={2} />
-  </button>
+                      <div className="stocktransfer-actions">
+                        <button
+                          type="button"
+                          className="stocktransfer-action-btn view-btn"
+                          title="View Details"
+                          onClick={() => openViewModal(item)}
+                        >
+                          <Eye size={15} strokeWidth={2} />
+                        </button>
 
-  {/* Edit */}
-  {item.status !== "cancelled" && (
-    <button
-      type="button"
-      className="stocktransfer-action-btn edit-btn"
-      title="Edit"
-      onClick={() => openEditModal(item)}
-    >
-      <Edit size={15} strokeWidth={2} />
-    </button>
-  )}
+                        {item.status !== "cancelled" && (
+                          <button
+                            type="button"
+                            className="stocktransfer-action-btn edit-btn"
+                            title="Edit"
+                            onClick={() => openEditModal(item)}
+                          >
+                            <Edit size={15} strokeWidth={2} />
+                          </button>
+                        )}
 
-  {/* Cancel Transfer (Cross Icon) */}
-  {item.status !== "cancelled" && (
-    <button
-      type="button"
-      className="stocktransfer-action-btn cancel-btn"
-      title="Cancel Transfer"
-      onClick={() => handleCancel(item)}
-    >
-      <X size={15} strokeWidth={2.5} />
-    </button>
-  )}
+                        {item.status !== "cancelled" && (
+                          <button
+                            type="button"
+                            className="stocktransfer-action-btn cancel-btn"
+                            title="Cancel Transfer"
+                            onClick={() => handleCancel(item)}
+                          >
+                            <X size={15} strokeWidth={2.5} />
+                          </button>
+                        )}
 
-  {/* Delete */}
-  <button
-    type="button"
-    className="stocktransfer-action-btn delete-btn"
-    title="Delete"
-    onClick={() => handleDelete(item)}
-  >
-    <Trash2 size={15} strokeWidth={2} />
-  </button>
-</div>
+                        <button
+                          type="button"
+                          className="stocktransfer-action-btn delete-btn"
+                          title="Delete"
+                          onClick={() => handleDelete(item)}
+                        >
+                          <Trash2 size={15} strokeWidth={2} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -765,7 +805,6 @@ export default function StockTransfer() {
         </div>
       </div>
 
-      {/* CREATE / EDIT MODAL */}
       {showModal && (
         <div
           className="stocktransfer-modal-overlay"
@@ -812,9 +851,23 @@ export default function StockTransfer() {
                     <label>Store *</label>
                     <select
                       value={form.store}
-                      onChange={(e) =>
-                        setForm({ ...form, store: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const storeId = e.target.value;
+                        setForm({
+                          ...form,
+                          store: storeId,
+                          fromWarehouse: "",
+                          toWarehouse: "",
+                          items: [emptyItem()],
+                        });
+                        if (storeId) {
+                          fetchStoreDependentData(storeId);
+                        } else {
+                          setFormWarehouses([]);
+                          setFormProducts([]);
+                          setFormVariants([]);
+                        }
+                      }}
                       required
                     >
                       <option value="">Select Store</option>
@@ -830,13 +883,23 @@ export default function StockTransfer() {
                     <label>From Warehouse *</label>
                     <select
                       value={form.fromWarehouse}
-                      onChange={(e) =>
-                        setForm({ ...form, fromWarehouse: e.target.value })
-                      }
+                      disabled={!form.store}
+                      onChange={async (e) => {
+                        const whId = e.target.value;
+                        setForm({ ...form, fromWarehouse: whId });
+                        if (whId) {
+                          await fetchWarehouseDependentProducts(form.store, whId);
+                        } else {
+                          setFormProducts([]);
+                          setFormVariants([]);
+                        }
+                      }}
                       required
                     >
-                      <option value="">Select Origin Warehouse</option>
-                      {warehouses.map((w) => (
+                      <option value="">
+                        {form.store ? "Select Origin Warehouse" : "Select a store first"}
+                      </option>
+                      {formWarehouses.map((w) => (
                         <option key={w._id} value={w._id}>
                           {w.warehouseName || w.name}
                         </option>
@@ -848,13 +911,16 @@ export default function StockTransfer() {
                     <label>To Warehouse *</label>
                     <select
                       value={form.toWarehouse}
+                      disabled={!form.store}
                       onChange={(e) =>
                         setForm({ ...form, toWarehouse: e.target.value })
                       }
                       required
                     >
-                      <option value="">Select Destination Warehouse</option>
-                      {warehouses.map((w) => (
+                      <option value="">
+                        {form.store ? "Select Destination Warehouse" : "Select a store first"}
+                      </option>
+                      {formWarehouses.map((w) => (
                         <option key={w._id} value={w._id}>
                           {w.warehouseName || w.name}
                         </option>
@@ -880,18 +946,19 @@ export default function StockTransfer() {
                     <tbody>
                       {form.items.map((item, index) => {
                         const availableVariants = item.product
-                          ? variants.filter(
+                          ? formVariants.filter(
                               (v) =>
                                 String(v.product?._id || v.product) ===
                                 String(item.product)
                             )
-                          : variants;
+                          : formVariants;
 
                         return (
                           <tr key={index}>
                             <td>
                               <select
                                 value={item.product}
+                                disabled={!form.fromWarehouse}
                                 onChange={(e) =>
                                   handleItemProductChange(
                                     index,
@@ -900,8 +967,12 @@ export default function StockTransfer() {
                                 }
                                 required
                               >
-                                <option value="">Select Product</option>
-                                {products.map((p) => (
+                                <option value="">
+                                  {!form.fromWarehouse
+                                    ? "Select origin warehouse first"
+                                    : "Select Product"}
+                                </option>
+                                {formProducts.map((p) => (
                                   <option key={p._id} value={p._id}>
                                     {p.productName || p.name}
                                   </option>
@@ -912,6 +983,7 @@ export default function StockTransfer() {
                             <td>
                               <select
                                 value={item.variant}
+                                disabled={!item.product}
                                 onChange={(e) =>
                                   handleItemVariantChange(
                                     index,
@@ -920,7 +992,9 @@ export default function StockTransfer() {
                                 }
                                 required
                               >
-                                <option value="">Select Variant</option>
+                                <option value="">
+                                  {item.product ? "Select Variant" : "Pick product first"}
+                                </option>
                                 {availableVariants.map((v) => (
                                   <option key={v._id} value={v._id}>
                                     {v.skuCode}{" "}
@@ -966,6 +1040,7 @@ export default function StockTransfer() {
                   type="button"
                   className="stocktransfer-add-item-btn"
                   onClick={addItemRow}
+                  disabled={!form.fromWarehouse}
                 >
                   <Plus size={14} />
                   Add Line Item

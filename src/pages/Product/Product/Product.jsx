@@ -62,6 +62,9 @@ export default function Product() {
   const [units, setUnits] = useState([]);
   const [taxes, setTaxes] = useState([]);
 
+  const [filterCategories, setFilterCategories] = useState([]);
+  const [filterBrands, setFilterBrands] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -82,8 +85,13 @@ export default function Product() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-
-      const res = await getProducts();
+      const res = await getProducts({
+        store: storeFilter || undefined,
+        category: categoryFilter || undefined,
+        brand: brandFilter || undefined,
+        status: statusFilter || undefined,
+        search: search || undefined,
+      });
 
       if (res.data?.success) {
         setProducts(res.data.data || []);
@@ -98,143 +106,88 @@ export default function Product() {
     }
   };
 
-  const fetchDropdownData = async () => {
+  const fetchGlobalDropdowns = async () => {
     try {
-      const [storeRes, catRes, subCatRes, brandRes, unitRes, taxRes] =
-        await Promise.all([
-          getStores(),
-          getCategories(),
-          getSubCategories(),
-          getBrands(),
-          getUnits(),
-          getTaxSettings({ status: "active" }),
-        ]);
+      const [storeRes, taxRes] = await Promise.all([
+        getStores(),
+        getTaxSettings({ status: "active" }),
+      ]);
 
-      if (storeRes?.success) {
-        setStores(storeRes.data || []);
-      } else if (storeRes?.data?.success) {
-        setStores(storeRes.data.data || []);
+      if (storeRes?.success || storeRes?.data?.success) {
+        const storeData = storeRes.data || storeRes.data?.data || [];
+        setStores(storeData);
+        // Default to the first store (e.g., D-Mart) if none is selected
+        if (storeData.length > 0 && !storeFilter) {
+          setStoreFilter(storeData[0]._id);
+        }
       }
-
-      if (catRes?.success) {
-        setCategories(catRes.data || []);
-      } else if (catRes?.data?.success) {
-        setCategories(catRes.data.data || []);
-      }
-
-      if (subCatRes?.success) {
-        setSubCategories(subCatRes.data || []);
-      } else if (subCatRes?.data?.success) {
-        setSubCategories(subCatRes.data.data || []);
-      }
-
-      if (brandRes?.success) {
-        setBrands(brandRes.data || []);
-      } else if (brandRes?.data?.success) {
-        setBrands(brandRes.data.data || []);
-      }
-
-      if (unitRes?.success) {
-        setUnits(unitRes.data || []);
-      } else if (unitRes?.data?.success) {
-        setUnits(unitRes.data.data || []);
-      }
-
-      if (taxRes?.success) {
-        setTaxes(taxRes.data || []);
-      } else if (taxRes?.data?.success) {
-        setTaxes(taxRes.data.data || []);
+      if (taxRes?.success || taxRes?.data?.success) {
+        setTaxes(taxRes.data || taxRes.data?.data || []);
       }
     } catch (err) {
-      console.log("Dropdown fetch error:", err);
+      console.log("Global dropdown fetch error:", err);
+    }
+  };
+
+  const fetchStoreDependentDropdowns = async (storeId, isForFilter = false) => {
+    try {
+      const params = storeId ? { store: storeId } : {};
+      const [catRes, subCatRes, brandRes, unitRes] = await Promise.all([
+        getCategories(params),
+        getSubCategories(params),
+        getBrands(params),
+        getUnits(params),
+      ]);
+
+      const catList = catRes?.data || catRes?.data?.data || [];
+      const brandList = brandRes?.data || brandRes?.data?.data || [];
+      const subCatList = subCatRes?.data || subCatRes?.data?.data || [];
+      const unitList = unitRes?.data || unitRes?.data?.data || [];
+
+      if (isForFilter) {
+        setFilterCategories(catList);
+        setFilterBrands(brandList);
+      } else {
+        setCategories(catList);
+        setSubCategories(subCatList);
+        setBrands(brandList);
+        setUnits(unitList);
+      }
+    } catch (err) {
+      console.log("Store dependent dropdown error:", err);
     }
   };
 
   useEffect(() => {
-    fetchProducts();
-    fetchDropdownData();
+    fetchGlobalDropdowns();
   }, []);
 
-  const filteredProducts = useMemo(() => {
-    const searchValue = search.trim().toLowerCase();
+  useEffect(() => {
+    fetchStoreDependentDropdowns(storeFilter, true);
+    const timer = setTimeout(() => {
+      fetchProducts();
+    }, 300);
 
-    return products.filter((product) => {
-      const matchesSearch =
-        !searchValue ||
-        String(product.productCode || "")
-          .toLowerCase()
-          .includes(searchValue) ||
-        String(product.productName || "")
-          .toLowerCase()
-          .includes(searchValue) ||
-        String(product.displayName || "")
-          .toLowerCase()
-          .includes(searchValue) ||
-        String(product.hsnCode || "")
-          .toLowerCase()
-          .includes(searchValue);
+    return () => clearTimeout(timer);
+  }, [search, statusFilter, storeFilter, categoryFilter, brandFilter]);
 
-      const matchesStatus =
-        !statusFilter ||
-        String(product.status || "").toLowerCase() ===
-          statusFilter.toLowerCase();
-
-      const productStoreId =
-        product.store?._id || product.store?.id || product.store || "";
-
-      const matchesStore =
-        !storeFilter || String(productStoreId) === String(storeFilter);
-
-      const productCategoryId =
-        product.category?._id || product.category?.id || product.category || "";
-
-      const matchesCategory =
-        !categoryFilter || String(productCategoryId) === String(categoryFilter);
-
-      const productBrandId =
-        product.brand?._id || product.brand?.id || product.brand || "";
-
-      const matchesBrand =
-        !brandFilter || String(productBrandId) === String(brandFilter);
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesStore &&
-        matchesCategory &&
-        matchesBrand
-      );
-    });
-  }, [
-    products,
-    search,
-    statusFilter,
-    storeFilter,
-    categoryFilter,
-    brandFilter,
-  ]);
+  const filteredProducts = useMemo(() => products, [products]);
 
   const totalProducts = filteredProducts.length;
-
   const activeProducts = filteredProducts.filter(
     (x) => String(x.status).toLowerCase() === "active",
   ).length;
-
   const inactiveProducts = filteredProducts.filter(
     (x) => String(x.status).toLowerCase() === "inactive",
   ).length;
-
   const lowStockProducts = filteredProducts.filter(
     (x) => Number(x.totalStock || 0) <= Number(x.minimumStock || 0),
   ).length;
 
   const subCategoriesForFormCategory = useMemo(() => {
     if (!formData.category) return [];
-
     return subCategories.filter((sc) => {
-      const categoryId =
-        sc.category?._id || sc.category?.id || sc.category || "";
-
+      const categoryId = sc.category?._id || sc.category?.id || sc.category || "";
       return String(categoryId) === String(formData.category);
     });
   }, [subCategories, formData.category]);
@@ -244,6 +197,17 @@ export default function Product() {
       ...prev,
       [key]: value,
     }));
+
+    if (key === "store") {
+      fetchStoreDependentDropdowns(value, false);
+      setFormData((prev) => ({
+        ...prev,
+        category: "",
+        subCategory: "",
+        brand: "",
+        unit: "",
+      }));
+    }
   };
 
   const resetImageState = () => {
@@ -256,52 +220,43 @@ export default function Product() {
     setEditingId(null);
     setFormData({
       ...emptyProduct,
+      store: storeFilter || (stores.length > 0 ? stores[0]._id : ""),
     });
-
+    if (storeFilter || (stores.length > 0 ? stores[0]._id : "")) {
+      fetchStoreDependentDropdowns(storeFilter || stores[0]._id, false);
+    }
     resetImageState();
     setShowModal(true);
   };
 
   const openEditModal = (product) => {
     setEditingId(product._id);
+    const storeId = product.store?._id || product.store || "";
 
     setFormData({
-      store: product.store?._id || product.store || "",
-
+      store: storeId,
       productCode: product.productCode || "",
-
       productName: product.productName || "",
-
       displayName: product.displayName || "",
-
       category: product.category?._id || product.category || "",
-
       subCategory: product.subCategory?._id || product.subCategory || "",
-
       brand: product.brand?._id || product.brand || "",
-
       unit: product.unit?._id || product.unit || "",
-
       taxSetting: product.taxSetting?._id || product.taxSetting || "",
-
       hsnCode: product.hsnCode || "",
-
       description: product.description || "",
-
       totalStock: product.totalStock ?? 0,
-
       minimumStock: product.minimumStock ?? 5,
-
       isBatchRequired: Boolean(product.isBatchRequired),
-
       isExpiryRequired: Boolean(product.isExpiryRequired),
-
       allowDiscount: product.allowDiscount !== false,
-
       allowReturn: product.allowReturn !== false,
-
       status: product.status || "active",
     });
+
+    if (storeId) {
+      fetchStoreDependentDropdowns(storeId, false);
+    }
 
     setExistingImage(product.image || "");
     setImageFile(null);
@@ -312,24 +267,15 @@ export default function Product() {
   const closeModal = () => {
     setShowModal(false);
     setEditingId(null);
-
-    setFormData({
-      ...emptyProduct,
-    });
-
+    setFormData({ ...emptyProduct });
     resetImageState();
   };
 
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
-
     if (!file) return;
-
     setImageFile(file);
-
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-
+    setImagePreview(URL.createObjectURL(file));
     e.target.value = "";
   };
 
@@ -349,21 +295,16 @@ export default function Product() {
       !formData.category ||
       !formData.unit
     ) {
-      alert(
-        "Store, Product Code, Product Name, Category and Unit are required.",
-      );
-
+      alert("Store, Product Code, Product Name, Category and Unit are required.");
       return;
     }
 
     try {
       setSaving(true);
-
       const fd = new FormData();
 
       Object.entries(formData).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
-
         fd.append(key, value);
       });
 
@@ -373,18 +314,15 @@ export default function Product() {
 
       if (editingId) {
         fd.append("existingImage", existingImage || "");
-
         await updateProduct(editingId, fd);
       } else {
         await createProduct(fd);
       }
 
       closeModal();
-
       await fetchProducts();
     } catch (err) {
       console.log("Save product error:", err);
-
       alert(err.response?.data?.message || "Unable to save Product.");
     } finally {
       setSaving(false);
@@ -398,43 +336,26 @@ export default function Product() {
       } else {
         await activateProduct(product._id);
       }
-
       await fetchProducts();
     } catch (err) {
       console.log(err);
-
       alert("Unable to update product status.");
     }
   };
 
   const handleDelete = async (id) => {
-    if (
-      !window.confirm("Permanently delete this product? This cannot be undone.")
-    ) {
+    if (!window.confirm("Permanently delete this product? This cannot be undone.")) {
       return;
     }
 
     try {
       await deleteProduct(id);
-
       await fetchProducts();
     } catch (err) {
       console.log(err);
-
       alert(err.response?.data?.message || "Unable to delete product.");
     }
   };
-
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("");
-    setStoreFilter("");
-    setCategoryFilter("");
-    setBrandFilter("");
-  };
-
-  const hasFilters =
-    search || statusFilter || storeFilter || categoryFilter || brandFilter;
 
   return (
     <div className="product-page">
@@ -442,8 +363,7 @@ export default function Product() {
         <div className="page-header">
           <div>
             <h2>Products</h2>
-
-            <p>Manage your product catalog.</p>
+            <p>Manage store-wise product catalog.</p>
           </div>
 
           <button className="primary-btn" onClick={openAddModal}>
@@ -455,7 +375,6 @@ export default function Product() {
         <div className="product-toolbar">
           <div className="product-search-box">
             <Search size={18} />
-
             <input
               type="text"
               placeholder="Search product code, name or HSN..."
@@ -467,10 +386,13 @@ export default function Product() {
           <select
             className="product-filter-select"
             value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
+            onChange={(e) => {
+              setStoreFilter(e.target.value);
+              setCategoryFilter("");
+              setBrandFilter("");
+            }}
           >
-            <option value="">All Stores</option>
-
+            <option value="">Select Store</option>
             {stores.map((store) => (
               <option key={store._id} value={store._id}>
                 {store.storeName}
@@ -482,10 +404,10 @@ export default function Product() {
             className="product-filter-select"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
+            disabled={!storeFilter}
           >
             <option value="">All Categories</option>
-
-            {categories.map((category) => (
+            {filterCategories.map((category) => (
               <option key={category._id} value={category._id}>
                 {category.categoryName}
               </option>
@@ -496,10 +418,10 @@ export default function Product() {
             className="product-filter-select"
             value={brandFilter}
             onChange={(e) => setBrandFilter(e.target.value)}
+            disabled={!storeFilter}
           >
             <option value="">All Brands</option>
-
-            {brands.map((brand) => (
+            {filterBrands.map((brand) => (
               <option key={brand._id} value={brand._id}>
                 {brand.brandName}
               </option>
@@ -512,9 +434,7 @@ export default function Product() {
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="">All Status</option>
-
             <option value="active">Active</option>
-
             <option value="inactive">Inactive</option>
           </select>
         </div>
@@ -524,9 +444,7 @@ export default function Product() {
             <div className="product-summary-icon">
               <Package size={24} />
             </div>
-
             <h2>{totalProducts}</h2>
-
             <p>Total Products</p>
           </div>
 
@@ -534,9 +452,7 @@ export default function Product() {
             <div className="product-summary-icon">
               <ShieldCheck size={24} />
             </div>
-
             <h2>{activeProducts}</h2>
-
             <p>Active</p>
           </div>
 
@@ -544,9 +460,7 @@ export default function Product() {
             <div className="product-summary-icon">
               <ShieldOff size={24} />
             </div>
-
             <h2>{inactiveProducts}</h2>
-
             <p>Inactive</p>
           </div>
 
@@ -554,9 +468,7 @@ export default function Product() {
             <div className="product-summary-icon">
               <AlertTriangle size={24} />
             </div>
-
             <h2>{lowStockProducts}</h2>
-
             <p>Low Stock</p>
           </div>
         </div>
@@ -566,17 +478,11 @@ export default function Product() {
             <thead>
               <tr>
                 <th>Product</th>
-
                 <th>Category</th>
-
                 <th>Brand</th>
-
                 <th>Unit</th>
-
                 <th>Stock</th>
-
                 <th>Status</th>
-
                 <th width="140">Action</th>
               </tr>
             </thead>
@@ -591,7 +497,7 @@ export default function Product() {
               ) : filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="empty-row">
-                    No Products Found
+                    {!storeFilter ? "Please select a store to view products" : "No Products Found"}
                   </td>
                 </tr>
               ) : (
@@ -619,16 +525,13 @@ export default function Product() {
                             <strong>
                               {product.displayName || product.productName}
                             </strong>
-
                             <p>{product.productCode}</p>
                           </div>
                         </div>
                       </td>
 
                       <td>{product.category?.categoryName || "—"}</td>
-
                       <td>{product.brand?.brandName || "—"}</td>
-
                       <td>{product.unit?.shortName || "—"}</td>
 
                       <td>
@@ -639,9 +542,7 @@ export default function Product() {
                         {isLow && (
                           <span
                             className="badge low-stock"
-                            style={{
-                              marginLeft: 8,
-                            }}
+                            style={{ marginLeft: 8 }}
                           >
                             Low
                           </span>
@@ -683,8 +584,7 @@ export default function Product() {
                             }
                             onClick={() => handleToggleStatus(product)}
                           >
-                            {String(product.status).toLowerCase() ===
-                            "active" ? (
+                            {String(product.status).toLowerCase() === "active" ? (
                               <ShieldOff size={16} />
                             ) : (
                               <ShieldCheck size={16} />
@@ -713,7 +613,6 @@ export default function Product() {
             <div className="product-modal">
               <div className="modal-header">
                 <h3>{editingId ? "Edit Product" : "Add Product"}</h3>
-
                 <button className="close-btn" onClick={closeModal}>
                   <X size={20} />
                 </button>
@@ -725,13 +624,11 @@ export default function Product() {
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Store *</label>
-
                     <select
                       value={formData.store}
                       onChange={(e) => updateField("store", e.target.value)}
                     >
                       <option value="">Select Store</option>
-
                       {stores.map((store) => (
                         <option key={store._id} value={store._id}>
                           {store.storeName}
@@ -742,7 +639,6 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Product Code *</label>
-
                     <input
                       placeholder="e.g. PRD-0001"
                       value={formData.productCode}
@@ -754,7 +650,6 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Product Name *</label>
-
                     <input
                       placeholder="e.g. Basmati Rice 1kg"
                       value={formData.productName}
@@ -766,7 +661,6 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Display Name</label>
-
                     <input
                       placeholder="Defaults to Product Name"
                       value={formData.displayName}
@@ -778,17 +672,17 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Category *</label>
-
                     <select
                       value={formData.category}
                       onChange={(e) => {
                         updateField("category", e.target.value);
-
                         updateField("subCategory", "");
                       }}
+                      disabled={!formData.store}
                     >
-                      <option value="">Select Category</option>
-
+                      <option value="">
+                        {formData.store ? "Select Category" : "Select a store first"}
+                      </option>
                       {categories.map((category) => (
                         <option key={category._id} value={category._id}>
                           {category.categoryName}
@@ -799,7 +693,6 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Sub-Category</label>
-
                     <select
                       value={formData.subCategory}
                       onChange={(e) =>
@@ -812,7 +705,6 @@ export default function Product() {
                           ? "Select Sub-Category"
                           : "Select a category first"}
                       </option>
-
                       {subCategoriesForFormCategory.map((subCategory) => (
                         <option key={subCategory._id} value={subCategory._id}>
                           {subCategory.subCategoryName}
@@ -823,13 +715,14 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Brand</label>
-
                     <select
                       value={formData.brand}
                       onChange={(e) => updateField("brand", e.target.value)}
+                      disabled={!formData.store}
                     >
-                      <option value="">No Brand</option>
-
+                      <option value="">
+                        {formData.store ? "No Brand" : "Select a store first"}
+                      </option>
                       {brands.map((brand) => (
                         <option key={brand._id} value={brand._id}>
                           {brand.brandName}
@@ -840,13 +733,14 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Unit *</label>
-
                     <select
                       value={formData.unit}
                       onChange={(e) => updateField("unit", e.target.value)}
+                      disabled={!formData.store}
                     >
-                      <option value="">Select Unit</option>
-
+                      <option value="">
+                        {formData.store ? "Select Unit" : "Select a store first"}
+                      </option>
                       {units.map((unit) => (
                         <option key={unit._id} value={unit._id}>
                           {unit.unitName} ({unit.shortName})
@@ -857,7 +751,6 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Tax Setting</label>
-
                     <select
                       value={formData.taxSetting}
                       onChange={(e) =>
@@ -865,7 +758,6 @@ export default function Product() {
                       }
                     >
                       <option value="">No Tax</option>
-
                       {taxes.map((tax) => (
                         <option key={tax._id} value={tax._id}>
                           {tax.taxName}
@@ -876,7 +768,6 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>HSN Code</label>
-
                     <input
                       value={formData.hsnCode}
                       onChange={(e) => updateField("hsnCode", e.target.value)}
@@ -885,20 +776,17 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Status</label>
-
                     <select
                       value={formData.status}
                       onChange={(e) => updateField("status", e.target.value)}
                     >
                       <option value="active">Active</option>
-
                       <option value="inactive">Inactive</option>
                     </select>
                   </div>
 
                   <div className="form-group">
                     <label>Total Stock</label>
-
                     <input
                       type="number"
                       min="0"
@@ -911,7 +799,6 @@ export default function Product() {
 
                   <div className="form-group">
                     <label>Minimum Stock (reorder level)</label>
-
                     <input
                       type="number"
                       min="0"
@@ -924,7 +811,6 @@ export default function Product() {
 
                   <div className="form-group form-group-full">
                     <label>Product Image</label>
-
                     <div className="image-picker">
                       {displayedImage ? (
                         <img
@@ -940,7 +826,6 @@ export default function Product() {
 
                       <label className="image-picker-btn">
                         {displayedImage ? "Change Image" : "Choose Image"}
-
                         <input
                           type="file"
                           accept="image/*"
@@ -963,7 +848,6 @@ export default function Product() {
 
                   <div className="form-group form-group-full">
                     <label>Description</label>
-
                     <textarea
                       rows="2"
                       value={formData.description}
@@ -1034,7 +918,6 @@ export default function Product() {
                   disabled={saving}
                 >
                   <Save size={18} />
-
                   {saving
                     ? "Saving..."
                     : editingId
