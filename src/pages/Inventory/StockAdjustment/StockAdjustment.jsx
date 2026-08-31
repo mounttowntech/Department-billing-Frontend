@@ -52,15 +52,18 @@ const emptyForm = {
 export default function StockAdjustment() {
   const [adjustments, setAdjustments] = useState([]);
   const [stores, setStores] = useState([]);
-  const [warehouses, setWarehouses] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [variants, setVariants] = useState([]);
+  const [allWarehouses, setAllWarehouses] = useState([]);
+
+  const [formWarehouses, setFormWarehouses] = useState([]);
+  const [formProducts, setFormProducts] = useState([]);
+  const [formVariants, setFormVariants] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -72,66 +75,38 @@ export default function StockAdjustment() {
   const [viewingItem, setViewingItem] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
-  // ======================================================
-  // LOAD MASTER DATA
-  // ======================================================
-  const loadMasterData = async () => {
+  const loadGlobalMasterData = async () => {
     try {
-      const [storesRes, whRes, prodRes, varRes] = await Promise.allSettled([
+      const [storesRes, whRes] = await Promise.all([
         getStores(),
         getWarehouses(),
-        getProducts(),
-        getVariants(),
       ]);
 
-      if (storesRes.status === "fulfilled") {
-        const d =
-          storesRes.value?.data?.data ||
-          storesRes.value?.data?.stores ||
-          storesRes.value?.data ||
-          [];
-        setStores(Array.isArray(d) ? d : []);
-      }
+      const storeData =
+        storesRes?.data?.data ||
+        storesRes?.data?.stores ||
+        storesRes?.data ||
+        storesRes ||
+        [];
+      setStores(Array.isArray(storeData) ? storeData : []);
 
-      if (whRes.status === "fulfilled") {
-        const d =
-          whRes.value?.data?.data ||
-          whRes.value?.data?.warehouses ||
-          whRes.value?.data ||
-          [];
-        setWarehouses(Array.isArray(d) ? d : []);
-      }
-
-      if (prodRes.status === "fulfilled") {
-        const d =
-          prodRes.value?.data?.data ||
-          prodRes.value?.data?.products ||
-          prodRes.value?.data ||
-          [];
-        setProducts(Array.isArray(d) ? d : []);
-      }
-
-      if (varRes.status === "fulfilled") {
-        const d =
-          varRes.value?.data?.data ||
-          varRes.value?.data?.variants ||
-          varRes.value?.data ||
-          [];
-        setVariants(Array.isArray(d) ? d : []);
-      }
+      const whData =
+        whRes?.data?.data ||
+        whRes?.data?.warehouses ||
+        whRes?.data ||
+        [];
+      setAllWarehouses(Array.isArray(whData) ? whData : []);
     } catch (error) {
       console.error("Failed to load master data:", error);
     }
   };
 
-  // ======================================================
-  // LOAD ADJUSTMENTS
-  // ======================================================
   const loadAdjustments = async () => {
     try {
       setLoading(true);
       const params = {};
       if (storeFilter) params.store = storeFilter;
+      if (warehouseFilter) params.warehouse = warehouseFilter;
       if (typeFilter) params.adjustmentType = typeFilter;
       if (fromDate) params.from = fromDate;
       if (toDate) params.to = toDate;
@@ -149,17 +124,55 @@ export default function StockAdjustment() {
     }
   };
 
+
+  const fetchStoreDependentData = async (storeId) => {
+    if (!storeId) {
+      setFormWarehouses([]);
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const whRes = await getWarehouses({ store: storeId });
+      setFormWarehouses(whRes?.data?.data || whRes?.data?.warehouses || whRes?.data || []);
+      setFormProducts([]);
+      setFormVariants([]);
+    } catch (error) {
+      console.error("Failed to load store dependent data:", error);
+    }
+  };
+
+
+  const fetchWarehouseDependentProducts = async (storeId, warehouseId) => {
+    if (!storeId || !warehouseId) {
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const params = { store: storeId, warehouse: warehouseId };
+      const [prodRes, varRes] = await Promise.all([
+        getProducts(params),
+        getVariants(params),
+      ]);
+
+      setFormProducts(prodRes?.data?.data || prodRes?.data?.products || prodRes?.data || []);
+      setFormVariants(varRes?.data?.data || varRes?.data?.variants || varRes?.data || []);
+    } catch (error) {
+      console.error("Failed to load warehouse products:", error);
+    }
+  };
+
   useEffect(() => {
-    loadMasterData();
+    loadGlobalMasterData();
   }, []);
 
   useEffect(() => {
     loadAdjustments();
-  }, [storeFilter, typeFilter, fromDate, toDate]);
+  }, [storeFilter, warehouseFilter, typeFilter, fromDate, toDate]);
 
-  // ======================================================
-  // RESOLVER HELPERS
-  // ======================================================
   const getStoreName = (storeField) => {
     if (!storeField) return "—";
     if (typeof storeField === "object" && storeField !== null) {
@@ -174,7 +187,7 @@ export default function StockAdjustment() {
     if (typeof whField === "object" && whField !== null) {
       return whField.warehouseName || whField.name || "—";
     }
-    const matched = warehouses.find((w) => String(w._id || w.id) === String(whField));
+    const matched = allWarehouses.find((w) => String(w._id || w.id) === String(whField));
     return matched?.warehouseName || matched?.name || "—";
   };
 
@@ -183,14 +196,14 @@ export default function StockAdjustment() {
       return pField.productName || pField.name || "—";
     }
     if (pField) {
-      const matched = products.find((p) => String(p._id || p.id) === String(pField));
+      const matched = formProducts.find((p) => String(p._id || p.id) === String(pField));
       if (matched) return matched.productName || matched.name || "—";
     }
     if (variantField) {
       const varId = typeof variantField === "object" ? variantField._id : variantField;
-      const matchedVar = variants.find((v) => String(v._id || v.id) === String(varId));
+      const matchedVar = formVariants.find((v) => String(v._id || v.id) === String(varId));
       if (matchedVar?.product) {
-        const prodObj = products.find(
+        const prodObj = formProducts.find(
           (p) => String(p._id || p.id) === String(matchedVar.product?._id || matchedVar.product)
         );
         return prodObj?.productName || prodObj?.name || "—";
@@ -199,12 +212,10 @@ export default function StockAdjustment() {
     return typeof pField === "string" ? pField : "—";
   };
 
-  // ======================================================
-  // CLEAR FILTERS HANDLER
-  // ======================================================
   const clearFilters = () => {
     setSearch("");
     setStoreFilter("");
+    setWarehouseFilter("");
     setTypeFilter("");
     setFromDate("");
     setToDate("");
@@ -227,7 +238,7 @@ export default function StockAdjustment() {
         sku.includes(term)
       );
     });
-  }, [adjustments, search, stores, products, variants]);
+  }, [adjustments, search, stores, formProducts, formVariants]);
 
   const summary = useMemo(() => {
     const increases = adjustments.filter((a) => a.adjustmentType === "increase");
@@ -246,24 +257,34 @@ export default function StockAdjustment() {
     };
   }, [adjustments]);
 
-  // ======================================================
-  // MODAL HANDLERS
-  // ======================================================
   const openCreateModal = () => {
     setEditingId(null);
     setForm({
       ...emptyForm,
       adjustmentNo: generateAdjustmentNo(),
     });
+    setFormWarehouses([]);
+    setFormProducts([]);
+    setFormVariants([]);
     setShowModal(true);
   };
 
-  const openEditModal = (item) => {
+  const openEditModal = async (item) => {
+    const storeId = item.store?._id || item.store || "";
+    const whId = item.warehouse?._id || item.warehouse || "";
+
+    if (storeId) {
+      await fetchStoreDependentData(storeId);
+      if (whId) {
+        await fetchWarehouseDependentProducts(storeId, whId);
+      }
+    }
+
     setEditingId(item._id);
     setForm({
       adjustmentNo: item.adjustmentNo,
-      store: item.store?._id || item.store || "",
-      warehouse: item.warehouse?._id || item.warehouse || "",
+      store: storeId,
+      warehouse: whId,
       product: item.product?._id || item.product || "",
       variant: item.variant?._id || item.variant || "",
       skuCode: item.skuCode || item.variant?.skuCode || "",
@@ -289,7 +310,7 @@ export default function StockAdjustment() {
   };
 
   const handleVariantChange = (variantId) => {
-    const variantObj = variants.find(
+    const variantObj = formVariants.find(
       (v) => String(v._id || v.id) === String(variantId)
     );
     setForm((prev) => ({
@@ -301,20 +322,21 @@ export default function StockAdjustment() {
   };
 
   const availableVariants = useMemo(() => {
-    if (!form.product) return variants;
-    return variants.filter(
+    if (!form.product) return formVariants;
+    return formVariants.filter(
       (v) => String(v.product?._id || v.product) === String(form.product)
     );
-  }, [variants, form.product]);
+  }, [formVariants, form.product]);
 
-  // ======================================================
-  // FORM SUBMISSION
-  // ======================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.store) {
       alert("Store is required");
+      return;
+    }
+    if (!form.warehouse) {
+      alert("Warehouse is required");
       return;
     }
     if (!form.variant) {
@@ -386,11 +408,10 @@ export default function StockAdjustment() {
   return (
     <div className="stockadj-page">
       <div className="stockadj-content">
-        {/* HEADER */}
         <div className="stockadj-page-header">
           <div>
             <h2>Stock Adjustments</h2>
-            <p>Track, reconcile, and audit manual inventory changes</p>
+            <p>Track, reconcile, and audit store-wise inventory changes</p>
           </div>
 
           <button className="stockadj-primary-btn" onClick={openCreateModal}>
@@ -398,7 +419,6 @@ export default function StockAdjustment() {
             New Adjustment
           </button>
         </div>
-
 
         <div className="stockadj-toolbar">
           <div className="stockadj-search-box">
@@ -422,7 +442,10 @@ export default function StockAdjustment() {
           <select
             className="stockadj-filter-select"
             value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
+            onChange={(e) => {
+              setStoreFilter(e.target.value);
+              setWarehouseFilter("");
+            }}
           >
             <option value="">All Stores</option>
             {stores.map((s) => (
@@ -430,6 +453,24 @@ export default function StockAdjustment() {
                 {s.storeName || s.name}
               </option>
             ))}
+          </select>
+
+          <select
+            className="stockadj-filter-select"
+            value={warehouseFilter}
+            onChange={(e) => setWarehouseFilter(e.target.value)}
+            disabled={!storeFilter}
+          >
+            <option value="">
+              {storeFilter ? "All Warehouses" : "Select a store first"}
+            </option>
+            {allWarehouses
+              .filter((w) => String(w.store?._id || w.store) === String(storeFilter))
+              .map((w) => (
+                <option key={w._id} value={w._id}>
+                  {w.warehouseName || w.name}
+                </option>
+              ))}
           </select>
 
           <select
@@ -456,7 +497,7 @@ export default function StockAdjustment() {
             onChange={(e) => setToDate(e.target.value)}
           />
 
-          {(search || storeFilter || typeFilter || fromDate || toDate) && (
+          {(search || storeFilter || warehouseFilter || typeFilter || fromDate || toDate) && (
             <button
               type="button"
               className="stockadj-clear-btn"
@@ -465,10 +506,7 @@ export default function StockAdjustment() {
               Clear
             </button>
           )}
-
-
         </div>
-
 
         <div className="stockadj-summary-grid">
           <div className="stockadj-summary-card card-blue">
@@ -511,6 +549,7 @@ export default function StockAdjustment() {
             </div>
           </div>
         </div>
+
         <div className="stockadj-table-card">
           <table className="stockadj-table">
             <thead>
@@ -524,7 +563,7 @@ export default function StockAdjustment() {
                 <th style={{ width: "7%" }}>Before</th>
                 <th style={{ width: "7%" }}>After</th>
                 <th style={{ width: "10%" }}>Date</th>
-                <th style={{ width: "12%" }}>Actions</th>
+                <th style={{ width: "15%" }}>Actions</th>
               </tr>
             </thead>
 
@@ -635,7 +674,6 @@ export default function StockAdjustment() {
         </div>
       </div>
 
-      {/* CREATE / EDIT MODAL */}
       {showModal && (
         <div
           className="stockadj-modal-overlay"
@@ -679,9 +717,24 @@ export default function StockAdjustment() {
                     <label>Store *</label>
                     <select
                       value={form.store}
-                      onChange={(e) =>
-                        setForm({ ...form, store: e.target.value })
-                      }
+                      onChange={async (e) => {
+                        const storeId = e.target.value;
+                        setForm({
+                          ...form,
+                          store: storeId,
+                          warehouse: "",
+                          product: "",
+                          variant: "",
+                          skuCode: "",
+                        });
+                        if (storeId) {
+                          await fetchStoreDependentData(storeId);
+                        } else {
+                          setFormWarehouses([]);
+                          setFormProducts([]);
+                          setFormVariants([]);
+                        }
+                      }}
                       required
                     >
                       <option value="">Select Store</option>
@@ -694,15 +747,27 @@ export default function StockAdjustment() {
                   </div>
 
                   <div className="stockadj-form-group">
-                    <label>Warehouse (Optional)</label>
+                    <label>Warehouse *</label>
                     <select
                       value={form.warehouse}
-                      onChange={(e) =>
-                        setForm({ ...form, warehouse: e.target.value })
-                      }
+                      disabled={!form.store}
+                      onChange={async (e) => {
+                        const warehouseId = e.target.value;
+                        setForm({
+                          ...form,
+                          warehouse: warehouseId,
+                          product: "",
+                          variant: "",
+                          skuCode: "",
+                        });
+                        await fetchWarehouseDependentProducts(form.store, warehouseId);
+                      }}
+                      required
                     >
-                      <option value="">None / Main Store</option>
-                      {warehouses.map((w) => (
+                      <option value="">
+                        {form.store ? "Select Warehouse" : "Select a store first"}
+                      </option>
+                      {formWarehouses.map((w) => (
                         <option key={w._id} value={w._id}>
                           {w.warehouseName || w.name}
                         </option>
@@ -732,11 +797,18 @@ export default function StockAdjustment() {
                     <label>Product *</label>
                     <select
                       value={form.product}
+                      disabled={!form.warehouse}
                       onChange={(e) => handleProductChange(e.target.value)}
                       required
                     >
-                      <option value="">Select Product</option>
-                      {products.map((p) => (
+                      <option value="">
+                        {!form.store
+                          ? "Select a store first"
+                          : !form.warehouse
+                          ? "Select a warehouse first"
+                          : "Select Product"}
+                      </option>
+                      {formProducts.map((p) => (
                         <option key={p._id} value={p._id}>
                           {p.productName || p.name}
                         </option>
@@ -748,10 +820,13 @@ export default function StockAdjustment() {
                     <label>Variant / SKU *</label>
                     <select
                       value={form.variant}
+                      disabled={!form.product}
                       onChange={(e) => handleVariantChange(e.target.value)}
                       required
                     >
-                      <option value="">Select Variant</option>
+                      <option value="">
+                        {form.product ? "Select Variant" : "Select a product first"}
+                      </option>
                       {availableVariants.map((v) => (
                         <option key={v._id} value={v._id}>
                           {v.skuCode} {v.packSize ? `(${v.packSize})` : ""}

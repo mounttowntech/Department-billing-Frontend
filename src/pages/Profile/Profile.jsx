@@ -33,10 +33,6 @@ export default function Profile() {
     updateUser,
   } = useAuth();
 
-  // ==========================================================
-  // FORM DATA
-  // ==========================================================
-
   const [
     formData,
     setFormData,
@@ -51,10 +47,6 @@ export default function Profile() {
     storeCode: "",
   });
 
-  // ==========================================================
-  // ALERT
-  // ==========================================================
-
   const [
     alert,
     setAlert,
@@ -63,18 +55,10 @@ export default function Profile() {
     message: "",
   });
 
-  // ==========================================================
-  // LOADING
-  // ==========================================================
-
   const [
     loading,
     setLoading,
   ] = useState(false);
-
-  // ==========================================================
-  // LOAD USER FROM AUTH CONTEXT
-  // ==========================================================
 
   useEffect(() => {
     if (!user) {
@@ -126,9 +110,6 @@ export default function Profile() {
     });
   }, [user]);
 
-  // ==========================================================
-  // INPUT CHANGE
-  // ==========================================================
 
   const handleChange = (e) => {
     const {
@@ -143,21 +124,16 @@ export default function Profile() {
       })
     );
 
-    // Clear previous alert
     setAlert({
       type: "",
       message: "",
     });
   };
 
-  // ==========================================================
-  // UPDATE PROFILE
-  // ==========================================================
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
 
-    // Prevent double click
     if (loading) {
       return;
     }
@@ -170,10 +146,7 @@ export default function Profile() {
     });
 
     try {
-      // ======================================================
-      // VALIDATE FRONTEND DATA
-      // ======================================================
-
+ 
       const firstName =
         formData.firstName.trim();
 
@@ -206,10 +179,6 @@ export default function Profile() {
         );
       }
 
-      // ======================================================
-      // PAYLOAD
-      // ======================================================
-
       const payload = {
         firstName,
         lastName,
@@ -234,10 +203,6 @@ export default function Profile() {
         payload
       );
 
-      // ======================================================
-      // CALL BACKEND
-      // ======================================================
-
       const response =
         await updateMyProfile(
           payload
@@ -260,20 +225,12 @@ export default function Profile() {
         response
       );
 
-      // ======================================================
-      // CHECK RESPONSE
-      // ======================================================
-
       if (!response?.success) {
         throw new Error(
           response?.message ||
           "Profile update failed."
         );
       }
-
-      // ======================================================
-      // GET UPDATED USER
-      // ======================================================
 
       const updatedUser =
         response?.user ||
@@ -306,14 +263,6 @@ export default function Profile() {
         "Updated User:",
         updatedUser
       );
-
-      // ======================================================
-      // MERGE WITH CURRENT USER
-      // ======================================================
-      //
-      // Backend may return role/store populated,
-      // but if not, preserve the existing ones.
-      //
 
       const mergedUser = {
         ...user,
@@ -358,20 +307,9 @@ export default function Profile() {
         mergedUser
       );
 
-      // ======================================================
-      // UPDATE AUTH CONTEXT
-      // ======================================================
-      //
-      // This makes the Header update immediately.
-      //
-
       updateUser(
         mergedUser
       );
-
-      // ======================================================
-      // UPDATE FORM
-      // ======================================================
 
       setFormData({
         firstName:
@@ -410,9 +348,6 @@ export default function Profile() {
           "",
       });
 
-      // ======================================================
-      // SUCCESS MESSAGE
-      // ======================================================
 
       setAlert({
         type: "success",
@@ -452,9 +387,6 @@ export default function Profile() {
     }
   };
 
-  // ==========================================================
-  // DISPLAY NAME
-  // ==========================================================
 
   const displayName =
     [
@@ -466,28 +398,16 @@ export default function Profile() {
       .trim() ||
     "User";
 
-  // ==========================================================
-  // FIRST LETTER
-  // ==========================================================
-
   const firstLetter =
     displayName
       .charAt(0)
       .toUpperCase() ||
     "U";
 
-  // ==========================================================
-  // UI
-  // ==========================================================
-
   return (
     <div className="profile-page">
 
       <div className="profile-container">
-
-        {/* ==================================================
-            BACK TO DASHBOARD
-        ================================================== */}
 
         <div className="profile-top-bar">
 
@@ -503,10 +423,6 @@ export default function Profile() {
           </Link>
 
         </div>
-
-        {/* ==================================================
-            ALERT
-        ================================================== */}
 
         {alert.message && (
           <div
@@ -526,15 +442,7 @@ export default function Profile() {
           </div>
         )}
 
-        {/* ==================================================
-            PROFILE GRID
-        ================================================== */}
-
         <div className="profile-grid">
-
-          {/* ==================================================
-              LEFT PROFILE CARD
-          ================================================== */}
 
           <div
             className="
@@ -542,8 +450,6 @@ export default function Profile() {
               profile-sidebar-card
             "
           >
-
-            {/* AVATAR */}
 
             <div className="profile-avatar-wrapper">
 
@@ -557,13 +463,9 @@ export default function Profile() {
 
             </div>
 
-            {/* NAME */}
-
             <h2 className="profile-name">
               {displayName}
             </h2>
-
-            {/* ROLE */}
 
             <span
               className="
@@ -573,17 +475,11 @@ export default function Profile() {
               {formData.role}
             </span>
 
-            {/* ==================================================
-                PROFILE META
-            ================================================== */}
-
             <div
               className="
                 profile-meta-list
               "
             >
-
-              {/* EMAIL */}
 
               <div className="meta-item">
 
@@ -596,8 +492,6 @@ export default function Profile() {
 
               </div>
 
-              {/* PHONE */}
-
               <div className="meta-item">
 
                 <FiPhone />
@@ -608,8 +502,6 @@ export default function Profile() {
                 </span>
 
               </div>
-
-              {/* ROLE */}
 
               <div className="meta-item">
 
@@ -622,8 +514,6 @@ export default function Profile() {
 
               </div>
 
-              {/* STORE */}
-
               <div className="meta-item">
 
                 <FiHome />
@@ -634,8 +524,6 @@ export default function Profile() {
                 </span>
 
               </div>
-
-              {/* STORE CODE */}
 
               <div className="meta-item">
 
@@ -653,10 +541,6 @@ export default function Profile() {
 
           </div>
 
-          {/* ==================================================
-              RIGHT CONTENT
-          ================================================== */}
-
           <div
             className="
               profile-content-column
@@ -664,8 +548,6 @@ export default function Profile() {
           >
 
             <div className="profile-card">
-
-              {/* CARD HEADER */}
 
               <div className="card-header">
 
@@ -677,10 +559,6 @@ export default function Profile() {
 
               </div>
 
-              {/* ==================================================
-                  FORM
-              ================================================== */}
-
               <form
                 onSubmit={
                   handleProfileSubmit
@@ -688,10 +566,6 @@ export default function Profile() {
               >
 
                 <div className="form-grid">
-
-                  {/* ==================================================
-                      FIRST NAME
-                  ================================================== */}
 
                   <div className="form-group">
 
@@ -714,10 +588,6 @@ export default function Profile() {
 
                   </div>
 
-                  {/* ==================================================
-                      LAST NAME
-                  ================================================== */}
-
                   <div className="form-group">
 
                     <label>
@@ -737,10 +607,6 @@ export default function Profile() {
                     />
 
                   </div>
-
-                  {/* ==================================================
-                      EMAIL
-                  ================================================== */}
 
                   <div className="form-group">
 
@@ -763,10 +629,6 @@ export default function Profile() {
 
                   </div>
 
-                  {/* ==================================================
-                      PHONE
-                  ================================================== */}
-
                   <div className="form-group">
 
                     <label>
@@ -788,10 +650,6 @@ export default function Profile() {
 
                   </div>
 
-                  {/* ==================================================
-                      ROLE
-                  ================================================== */}
-
                   <div className="form-group">
 
                     <label>
@@ -811,10 +669,6 @@ export default function Profile() {
 
                   </div>
 
-                  {/* ==================================================
-                      STORE
-                  ================================================== */}
-
                   <div className="form-group">
 
                     <label>
@@ -833,10 +687,6 @@ export default function Profile() {
                     />
 
                   </div>
-
-                  {/* ==================================================
-                      STORE CODE
-                  ================================================== */}
 
                   <div className="form-group">
 
@@ -858,10 +708,6 @@ export default function Profile() {
                   </div>
 
                 </div>
-
-                {/* ==================================================
-                    SAVE BUTTON
-                ================================================== */}
 
                 <div className="form-actions">
 

@@ -1,11 +1,10 @@
 import api from "../api/axios";
 
-export const getProducts = async () => {
-  const response = await api.get("/products/all");
+export const getProducts = async (params = {}) => {
+  const response = await api.get("/products/all", { params });
 
   return response;
 };
-
 
 export const getProduct = async (params = {}) => {
   const response = await api.get("/products/all", {
@@ -41,17 +40,19 @@ export const deleteProduct = async (id) => {
   return response;
 };
 
-export const getLowStockProducts = async () => {
+export const getLowStockProducts = async (params = {}) => {
   const response = await api.get(
-    "/products/low-stock"
+    "/products/low-stock",
+    { params }
   );
 
   return response;
 };
 
-export const getTopProducts = async () => {
+export const getTopProducts = async (params = {}) => {
   const response = await api.get(
-    "/products/top-products"
+    "/products/top-products",
+    { params }
   );
 
   return response;

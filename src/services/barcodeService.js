@@ -20,7 +20,6 @@ export const updateBarcode = async (id, data) => {
   return response;
 };
 
-
 export const deactivateBarcode = async (id) => {
   const response = await api.put(`/barcodes/update/${id}`, {
     status: false,
@@ -28,14 +27,12 @@ export const deactivateBarcode = async (id) => {
   return response;
 };
 
-
 export const activateBarcode = async (id) => {
   const response = await api.put(`/barcodes/update/${id}`, {
     status: true,
   });
   return response;
 };
-
 
 export const deleteBarcode = async (id) => {
   const response = await api.delete(`/barcodes/delete/${id}`);

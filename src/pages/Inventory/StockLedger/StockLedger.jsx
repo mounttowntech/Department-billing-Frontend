@@ -70,22 +70,20 @@ const emptyForm = {
 export default function StockLedger() {
   const [ledgers, setLedgers] = useState([]);
   const [stores, setStores] = useState([]);
-  const [warehouses, setWarehouses] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [variants, setVariants] = useState([]);
+  const [formWarehouses, setFormWarehouses] = useState([]);
+  const [formProducts, setFormProducts] = useState([]);
+  const [formVariants, setFormVariants] = useState([]);
+  const [allWarehouses, setAllWarehouses] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  // Filters
   const [search, setSearch] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
   const [warehouseFilter, setWarehouseFilter] = useState("");
   const [movementFilter, setMovementFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-
-  // Modals
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -93,16 +91,12 @@ export default function StockLedger() {
 
   const [form, setForm] = useState(emptyForm);
 
-  // ======================================================
-  // LOAD MASTER DATA
-  // ======================================================
   const loadMasterData = async () => {
     try {
-      const [storesRes, whRes, prodRes, varRes] = await Promise.allSettled([
+      const [storesRes, whRes, prodRes] = await Promise.allSettled([
         getStores(),
         getWarehouses(),
         getProducts(),
-        getVariants(),
       ]);
 
       if (storesRes.status === "fulfilled") {
@@ -120,7 +114,7 @@ export default function StockLedger() {
           whRes.value?.data?.warehouses ||
           whRes.value?.data ||
           [];
-        setWarehouses(Array.isArray(d) ? d : []);
+        setAllWarehouses(Array.isArray(d) ? d : []);
       }
 
       if (prodRes.status === "fulfilled") {
@@ -129,30 +123,53 @@ export default function StockLedger() {
           prodRes.value?.data?.products ||
           prodRes.value?.data ||
           [];
-        setProducts(Array.isArray(d) ? d : []);
-      }
-
-      if (varRes.status === "fulfilled") {
-        const d =
-          varRes.value?.data?.data ||
-          varRes.value?.data?.variants ||
-          varRes.value?.data ||
-          [];
-        setVariants(Array.isArray(d) ? d : []);
+        setAllProducts(Array.isArray(d) ? d : []);
       }
     } catch (error) {
       console.error("Master Data Load Error:", error);
     }
   };
 
-  // ======================================================
-  // LOAD STOCK LEDGER RECORDS
-  // ======================================================
+  const fetchStoreDependentWarehouses = async (storeId) => {
+    if (!storeId) {
+      setFormWarehouses([]);
+      return;
+    }
+    try {
+      const whRes = await getWarehouses({ store: storeId });
+      setFormWarehouses(whRes?.data?.data || whRes?.data?.warehouses || whRes?.data || []);
+    } catch (error) {
+      console.error("Failed to load store warehouses:", error);
+    }
+  };
+
+  const fetchWarehouseDependentProducts = async (storeId, warehouseId) => {
+    if (!storeId || !warehouseId) {
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const params = { store: storeId, warehouse: warehouseId };
+
+      const [prodRes, varRes] = await Promise.all([
+        getProducts(params),
+        getVariants(params),
+      ]);
+
+      setFormProducts(prodRes?.data?.data || prodRes?.data?.products || prodRes?.data || []);
+      setFormVariants(varRes?.data?.data || varRes?.data?.variants || varRes?.data || []);
+    } catch (error) {
+      console.error("Failed to load warehouse-filtered products:", error);
+    }
+  };
+
   const loadLedgers = async () => {
     try {
       setLoading(true);
       const params = {
-        limit: 100, // retrieve recent history
+        limit: 100,
       };
 
       if (search) params.search = search;
@@ -187,9 +204,6 @@ export default function StockLedger() {
     loadLedgers();
   }, [storeFilter, warehouseFilter, movementFilter, fromDate, toDate]);
 
-  // ======================================================
-  // RESOLVER HELPERS
-  // ======================================================
   const getStoreName = (storeField) => {
     if (!storeField) return "—";
     if (typeof storeField === "object" && storeField !== null) {
@@ -204,7 +218,7 @@ export default function StockLedger() {
     if (typeof whField === "object" && whField !== null) {
       return whField.warehouseName || whField.name || "—";
     }
-    const matched = warehouses.find((w) => String(w._id || w.id) === String(whField));
+    const matched = allWarehouses.find((w) => String(w._id || w.id) === String(whField));
     return matched?.warehouseName || matched?.name || "—";
   };
 
@@ -213,13 +227,10 @@ export default function StockLedger() {
     if (typeof pField === "object" && pField !== null) {
       return pField.productName || pField.name || "—";
     }
-    const matched = products.find((p) => String(p._id || p.id) === String(pField));
+    const matched = allProducts.find((p) => String(p._id || p.id) === String(pField));
     return matched?.productName || matched?.name || "—";
   };
 
-  // ======================================================
-  // FILTER HANDLERS & SUMMARY
-  // ======================================================
   const clearFilters = () => {
     setSearch("");
     setStoreFilter("");
@@ -257,7 +268,7 @@ export default function StockLedger() {
         prodName.includes(term)
       );
     });
-  }, [ledgers, search, stores, products]);
+  }, [ledgers, search, stores, allProducts]);
 
   const summary = useMemo(() => {
     let inQty = 0;
@@ -280,20 +291,30 @@ export default function StockLedger() {
     };
   }, [ledgers]);
 
-  // ======================================================
-  // MODAL HANDLERS
-  // ======================================================
   const openCreateModal = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setFormWarehouses([]);
+    setFormProducts([]);
+    setFormVariants([]);
     setShowModal(true);
   };
 
-  const openEditModal = (ledger) => {
+  const openEditModal = async (ledger) => {
+    const storeId = ledger.store?._id || ledger.store || "";
+    const whId = ledger.warehouse?._id || ledger.warehouse || "";
+    
+    if (storeId) {
+      await fetchStoreDependentWarehouses(storeId);
+      if (whId) {
+        await fetchWarehouseDependentProducts(storeId, whId);
+      }
+    }
+
     setEditingId(ledger._id);
     setForm({
-      store: ledger.store?._id || ledger.store || "",
-      warehouse: ledger.warehouse?._id || ledger.warehouse || "",
+      store: storeId,
+      warehouse: whId,
       product: ledger.product?._id || ledger.product || "",
       variant: ledger.variant?._id || ledger.variant || "",
       skuCode: ledger.skuCode || ledger.variant?.skuCode || "",
@@ -325,7 +346,7 @@ export default function StockLedger() {
   };
 
   const handleVariantChange = (variantId) => {
-    const variantObj = variants.find(
+    const variantObj = formVariants.find(
       (v) => String(v._id || v.id) === String(variantId)
     );
     setForm((prev) => ({
@@ -338,20 +359,21 @@ export default function StockLedger() {
   };
 
   const availableVariants = useMemo(() => {
-    if (!form.product) return variants;
-    return variants.filter(
+    if (!form.product) return formVariants;
+    return formVariants.filter(
       (v) => String(v.product?._id || v.product) === String(form.product)
     );
-  }, [variants, form.product]);
+  }, [formVariants, form.product]);
 
-  // ======================================================
-  // SUBMISSION & DELETE
-  // ======================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.store) {
       alert("Store is required");
+      return;
+    }
+    if (!form.warehouse) {
+      alert("Warehouse is required");
       return;
     }
     if (!form.product) {
@@ -371,7 +393,7 @@ export default function StockLedger() {
       setSaving(true);
       const payload = {
         store: form.store,
-        warehouse: form.warehouse || null,
+        warehouse: form.warehouse,
         product: form.product,
         variant: form.variant,
         skuCode: form.skuCode,
@@ -431,7 +453,6 @@ export default function StockLedger() {
   return (
     <div className="stockledger-page">
       <div className="stockledger-content">
-        {/* HEADER */}
         <div className="stockledger-page-header">
           <div>
             <h2>Stock Ledger</h2>
@@ -465,7 +486,10 @@ export default function StockLedger() {
           <select
             className="stockledger-filter-select"
             value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
+            onChange={(e) => {
+              setStoreFilter(e.target.value);
+              setWarehouseFilter("");
+            }}
           >
             <option value="">All Stores</option>
             {stores.map((s) => (
@@ -479,13 +503,18 @@ export default function StockLedger() {
             className="stockledger-filter-select"
             value={warehouseFilter}
             onChange={(e) => setWarehouseFilter(e.target.value)}
+            disabled={!storeFilter}
           >
-            <option value="">All Warehouses</option>
-            {warehouses.map((w) => (
-              <option key={w._id} value={w._id}>
-                {w.warehouseName || w.name}
-              </option>
-            ))}
+            <option value="">
+              {storeFilter ? "All Warehouses" : "Select a store first"}
+            </option>
+            {allWarehouses
+              .filter((w) => String(w.store?._id || w.store) === String(storeFilter))
+              .map((w) => (
+                <option key={w._id} value={w._id}>
+                  {w.warehouseName || w.name}
+                </option>
+              ))}
           </select>
 
           <select
@@ -727,7 +756,6 @@ export default function StockLedger() {
         </div>
       </div>
 
-      {/* CREATE / EDIT MODAL */}
       {showModal && (
         <div
           className="stockledger-modal-overlay"
@@ -758,7 +786,25 @@ export default function StockLedger() {
                     <label>Store *</label>
                     <select
                       value={form.store}
-                      onChange={(e) => setForm({ ...form, store: e.target.value })}
+                      onChange={async (e) => {
+                        const storeId = e.target.value;
+                        setForm({
+                          ...form,
+                          store: storeId,
+                          warehouse: "",
+                          product: "",
+                          variant: "",
+                          skuCode: "",
+                          barcode: "",
+                        });
+                        if (storeId) {
+                          await fetchStoreDependentWarehouses(storeId);
+                        } else {
+                          setFormWarehouses([]);
+                          setFormProducts([]);
+                          setFormVariants([]);
+                        }
+                      }}
                       required
                     >
                       <option value="">Select Store</option>
@@ -771,13 +817,28 @@ export default function StockLedger() {
                   </div>
 
                   <div className="stockledger-form-group">
-                    <label>Warehouse (Optional)</label>
+                    <label>Warehouse *</label>
                     <select
                       value={form.warehouse}
-                      onChange={(e) => setForm({ ...form, warehouse: e.target.value })}
+                      disabled={!form.store}
+                      onChange={async (e) => {
+                        const whId = e.target.value;
+                        setForm({
+                          ...form,
+                          warehouse: whId,
+                          product: "",
+                          variant: "",
+                          skuCode: "",
+                          barcode: "",
+                        });
+                        await fetchWarehouseDependentProducts(form.store, whId);
+                      }}
+                      required
                     >
-                      <option value="">None / Main Store</option>
-                      {warehouses.map((w) => (
+                      <option value="">
+                        {form.store ? "Select Warehouse" : "Select a store first"}
+                      </option>
+                      {formWarehouses.map((w) => (
                         <option key={w._id} value={w._id}>
                           {w.warehouseName || w.name}
                         </option>
@@ -789,11 +850,18 @@ export default function StockLedger() {
                     <label>Product *</label>
                     <select
                       value={form.product}
+                      disabled={!form.warehouse}
                       onChange={(e) => handleProductChange(e.target.value)}
                       required
                     >
-                      <option value="">Select Product</option>
-                      {products.map((p) => (
+                      <option value="">
+                        {!form.store
+                          ? "Select a store first"
+                          : !form.warehouse
+                          ? "Select a warehouse first"
+                          : "Select Product"}
+                      </option>
+                      {formProducts.map((p) => (
                         <option key={p._id} value={p._id}>
                           {p.productName || p.name}
                         </option>
@@ -805,10 +873,13 @@ export default function StockLedger() {
                     <label>Variant / SKU *</label>
                     <select
                       value={form.variant}
+                      disabled={!form.product}
                       onChange={(e) => handleVariantChange(e.target.value)}
                       required
                     >
-                      <option value="">Select Variant</option>
+                      <option value="">
+                        {form.product ? "Select Variant" : "Select a product first"}
+                      </option>
                       {availableVariants.map((v) => (
                         <option key={v._id} value={v._id}>
                           {v.skuCode} {v.packSize ? `(${v.packSize})` : ""}

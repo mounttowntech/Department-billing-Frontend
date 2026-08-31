@@ -8,8 +8,6 @@ import {
   Save,
   RefreshCw,
   FileText,
-  ChevronLeft,
-  ChevronRight,
   ClipboardList,
   Clock3,
   CheckCircle2,
@@ -51,15 +49,15 @@ const emptyForm = {
   items: [],
 };
 
-
 const Holdbills = () => {
-
   const [holdBills, setHoldBills] = useState([]);
 
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [variants, setVariants] = useState([]);
   const [stores, setStores] = useState([]);
+  
+  // Store-filtered lists for the modal form dropdowns
+  const [formCustomers, setFormCustomers] = useState([]);
+  const [formProducts, setFormProducts] = useState([]);
+  const [formVariants, setFormVariants] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [masterLoading, setMasterLoading] = useState(false);
@@ -85,133 +83,61 @@ const Holdbills = () => {
   const [form, setForm] = useState(emptyForm);
 
   const getArrayData = (response, keys = []) => {
-
     if (Array.isArray(response)) {
       return response;
     }
-
     if (Array.isArray(response?.data)) {
       return response.data;
     }
-
     for (const key of keys) {
       if (Array.isArray(response?.[key])) {
         return response[key];
       }
     }
-
     return [];
   };
 
-  const loadMasters = async () => {
+  const loadGlobalStores = async () => {
+    try {
+      setMasterLoading(true);
+      const storeRes = await getStores();
+      setStores(getArrayData(storeRes, ["stores"]));
+    } catch (error) {
+      console.error("Store API Error:", error);
+    } finally {
+      setMasterLoading(false);
+    }
+  };
+
+  // Fetch store-dependent lists for the modal form
+  const fetchStoreDependentData = async (storeId) => {
+    if (!storeId) {
+      setFormCustomers([]);
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
 
     try {
-
       setMasterLoading(true);
-
-      const results = await Promise.allSettled([
-        getCustomers(),
-        getProducts(),
-        getProductVariants(),
-        getStores(),
+      const [custRes, prodRes, varRes] = await Promise.all([
+        getCustomers({ store: storeId }),
+        getProducts({ store: storeId }),
+        getProductVariants({ store: storeId }),
       ]);
 
-
-      if (results[0].status === "fulfilled") {
-
-        setCustomers(
-          getArrayData(
-            results[0].value,
-            ["customers"]
-          )
-        );
-
-      } else {
-
-        console.error(
-          "Customer API Error:",
-          results[0].reason
-        );
-
-      }
-
-      if (results[1].status === "fulfilled") {
-
-        setProducts(
-          getArrayData(
-            results[1].value,
-            ["products"]
-          )
-        );
-
-      } else {
-
-        console.error(
-          "Product API Error:",
-          results[1].reason
-        );
-
-      }
-
-      if (results[2].status === "fulfilled") {
-
-        setVariants(
-          getArrayData(
-            results[2].value,
-            [
-              "variants",
-              "productVariants",
-            ]
-          )
-        );
-
-      } else {
-
-        console.error(
-          "Variant API Error:",
-          results[2].reason
-        );
-
-      }
-
-
-      // STORES
-      if (results[3].status === "fulfilled") {
-
-        setStores(
-          getArrayData(
-            results[3].value,
-            ["stores"]
-          )
-        );
-
-      } else {
-
-        console.error(
-          "Store API Error:",
-          results[3].reason
-        );
-
-      }
-
+      setFormCustomers(getArrayData(custRes, ["customers"]));
+      setFormProducts(getArrayData(prodRes, ["products"]));
+      setFormVariants(getArrayData(varRes, ["variants", "productVariants"]));
     } catch (error) {
-
-      console.error(
-        "Master Data Error:",
-        error
-      );
-
+      console.error("Failed to load store dependent data:", error);
     } finally {
-
       setMasterLoading(false);
-
     }
   };
 
   const loadHoldBills = async () => {
-
     try {
-
       setLoading(true);
 
       const response = await getHoldBills({
@@ -221,7 +147,6 @@ const Holdbills = () => {
         status: status || undefined,
       });
 
-
       const data =
         Array.isArray(response?.data)
           ? response.data
@@ -229,87 +154,45 @@ const Holdbills = () => {
           ? response
           : [];
 
-
       setHoldBills(data);
 
-
       if (response?.pagination) {
-
-        setPagination(
-          response.pagination
-        );
-
+        setPagination(response.pagination);
       }
-
     } catch (error) {
-
-      console.error(
-        "Hold Bills Error:",
-        error
-      );
-
-      if (
-        error.response?.status === 401
-      ) {
-
-        alert(
-          "Session expired. Please login again."
-        );
-
+      console.error("Hold Bills Error:", error);
+      if (error.response?.status === 401) {
+        alert("Session expired. Please login again.");
       } else {
-
-        alert(
-          error.response?.data?.message ||
-            "Unable to load Hold Bills"
-        );
-
+        alert(error.response?.data?.message || "Unable to load Hold Bills");
       }
-
     } finally {
-
       setLoading(false);
-
     }
   };
 
   useEffect(() => {
-
-    loadMasters();
-
+    loadGlobalStores();
   }, []);
 
-
   useEffect(() => {
-
     loadHoldBills();
-
   }, [page, search, status]);
 
   const findProduct = (productId) => {
-
-    return products.find(
-      (product) =>
-        String(product?._id) ===
-        String(productId)
+    return formProducts.find(
+      (product) => String(product?._id) === String(productId),
     );
-
   };
 
   const findVariant = (variantId) => {
-
-    return variants.find(
-      (variant) =>
-        String(variant?._id) ===
-        String(variantId)
+    return formVariants.find(
+      (variant) => String(variant?._id) === String(variantId),
     );
-
   };
 
-
   const getProductBarcode = (product) => {
-
     if (!product) return "";
-
     return (
       product.barcode ||
       product.barCode ||
@@ -319,14 +202,10 @@ const Holdbills = () => {
       product.upc ||
       ""
     );
-
   };
 
-
   const getProductSku = (product) => {
-
     if (!product) return "";
-
     return (
       product.skuCode ||
       product.sku ||
@@ -334,147 +213,63 @@ const Holdbills = () => {
       product.itemCode ||
       ""
     );
-
   };
 
   const getProductName = (product) => {
-
     if (!product) return "";
-
-    return (
-      product.productName ||
-      product.name ||
-      product.product_name ||
-      ""
-    );
-
+    return product.productName || product.name || product.product_name || "";
   };
 
   const getProductPrice = (product) => {
-
     if (!product) return 0;
-
     return Number(
       product.salesPrice ??
         product.sellingPrice ??
         product.salePrice ??
         product.price ??
-        0
+        0,
     );
-
   };
 
-
   const getProductGST = (product) => {
-
     if (!product) return 0;
-
     return Number(
       product.gstPercentage ??
         product.gstPercent ??
         product.gst ??
         product.taxPercentage ??
-        0
+        0,
     );
-
   };
 
-
-  const handleProductChange = (
-    index,
-    productId
-  ) => {
-
-    const selectedProduct =
-      findProduct(productId);
-
-
-    const barcode =
-      getProductBarcode(
-        selectedProduct
-      );
-
-
-    const sku =
-      getProductSku(
-        selectedProduct
-      );
-
-
-    const productName =
-      getProductName(
-        selectedProduct
-      );
-
-
-    const salesPrice =
-      getProductPrice(
-        selectedProduct
-      );
-
-
-    const gstPercentage =
-      getProductGST(
-        selectedProduct
-      );
-
+  const handleProductChange = (index, productId) => {
+    const selectedProduct = findProduct(productId);
+    const barcode = getProductBarcode(selectedProduct);
+    const sku = getProductSku(selectedProduct);
+    const productName = getProductName(selectedProduct);
+    const salesPrice = getProductPrice(selectedProduct);
+    const gstPercentage = getProductGST(selectedProduct);
 
     setForm((prev) => {
-
-      const items = [
-        ...prev.items,
-      ];
-
-
+      const items = [...prev.items];
       items[index] = {
-
         ...items[index],
-
         product: productId,
-
-
         variant: "",
-
         skuCode: sku,
-
         barcode: barcode,
-
         productName: productName,
-
         salesPrice: salesPrice,
-
-        gstPercentage:
-          gstPercentage,
-
+        gstPercentage: gstPercentage,
       };
-
-
-      return {
-        ...prev,
-        items,
-      };
-
+      return { ...prev, items };
     });
-
   };
 
-
-  const handleVariantChange = (
-    index,
-    variantId
-  ) => {
-
-    const selectedVariant =
-      findVariant(variantId);
-
-    const currentItem =
-      form.items[index];
-
-    const selectedProduct =
-      findProduct(
-        currentItem.product
-      );
-
+  const handleVariantChange = (index, variantId) => {
+    const selectedVariant = findVariant(variantId);
+    const currentItem = form.items[index];
+    const selectedProduct = findProduct(currentItem.product);
 
     const variantBarcode =
       selectedVariant?.barcode ||
@@ -482,268 +277,91 @@ const Holdbills = () => {
       selectedVariant?.variantBarcode ||
       "";
 
-
     const variantSku =
       selectedVariant?.skuCode ||
       selectedVariant?.sku ||
       selectedVariant?.variantCode ||
       "";
 
-
-    const variantPrice =
-      Number(
-        selectedVariant?.salesPrice ??
-          selectedVariant?.sellingPrice ??
-          selectedVariant?.salePrice ??
-          selectedVariant?.price ??
-          getProductPrice(
-            selectedProduct
-          )
-      );
-
+    const variantPrice = Number(
+      selectedVariant?.salesPrice ??
+        selectedVariant?.sellingPrice ??
+        selectedVariant?.salePrice ??
+        selectedVariant?.price ??
+        getProductPrice(selectedProduct),
+    );
 
     setForm((prev) => {
-
-      const items = [
-        ...prev.items,
-      ];
-
-
+      const items = [...prev.items];
       items[index] = {
-
         ...items[index],
-
         variant: variantId,
-
-        skuCode:
-          variantSku ||
-          getProductSku(
-            selectedProduct
-          ),
-
-        barcode:
-          variantBarcode ||
-          getProductBarcode(
-            selectedProduct
-          ),
-
-        salesPrice:
-          variantPrice,
-
-        productName:
-          getProductName(
-            selectedProduct
-          ),
-
+        skuCode: variantSku || getProductSku(selectedProduct),
+        barcode: variantBarcode || getProductBarcode(selectedProduct),
+        salesPrice: variantPrice,
+        productName: getProductName(selectedProduct),
       };
-
-
-      return {
-        ...prev,
-        items,
-      };
-
+      return { ...prev, items };
     });
-
-  };
-
-  const handleItemChange = (
-    index,
-    field,
-    value
-  ) => {
-
-    setForm((prev) => {
-
-      const items = [
-        ...prev.items,
-      ];
-
-
-      const numericFields = [
-        "quantity",
-        "salesPrice",
-        "discount",
-        "gstPercentage",
-      ];
-
-
-      items[index] = {
-
-        ...items[index],
-
-        [field]:
-          numericFields.includes(
-            field
-          )
-            ? Number(value)
-            : value,
-
-      };
-
-
-      return {
-        ...prev,
-        items,
-      };
-
-    });
-
   };
 
   const addItem = () => {
-
     setForm((prev) => ({
-
       ...prev,
-
-      items: [
-        ...prev.items,
-        {
-          ...emptyItem,
-        },
-      ],
-
+      items: [...prev.items, { ...emptyItem }],
     }));
-
   };
-
 
   const removeItem = (index) => {
-
     setForm((prev) => ({
-
       ...prev,
-
-      items:
-        prev.items.filter(
-          (_, i) => i !== index
-        ),
-
+      items: prev.items.filter((_, i) => i !== index),
     }));
-
   };
 
-
   const totals = useMemo(() => {
-
     let quantity = 0;
     let subtotal = 0;
     let gst = 0;
     let discount = 0;
 
-
     form.items.forEach((item) => {
+      const qty = Number(item.quantity || 0);
+      const price = Number(item.salesPrice || 0);
+      const itemDiscount = Number(item.discount || 0);
+      const gstPercentage = Number(item.gstPercentage || 0);
 
-      const qty =
-        Number(
-          item.quantity || 0
-        );
-
-
-      const price =
-        Number(
-          item.salesPrice || 0
-        );
-
-
-      const itemDiscount =
-        Number(
-          item.discount || 0
-        );
-
-
-      const gstPercentage =
-        Number(
-          item.gstPercentage || 0
-        );
-
-
-      const gross =
-        qty * price;
-
-
-      const taxable =
-        Math.max(
-          gross - itemDiscount,
-          0
-        );
-
-
-      const itemGST =
-        (taxable *
-          gstPercentage) /
-        100;
-
+      const gross = qty * price;
+      const taxable = Math.max(gross - itemDiscount, 0);
+      const itemGST = (taxable * gstPercentage) / 100;
 
       quantity += qty;
-
       subtotal += taxable;
-
       gst += itemGST;
-
       discount += itemDiscount;
-
     });
 
-
     return {
-
       quantity,
-
       subtotal,
-
       gst,
-
       discount,
-
-      grandTotal:
-        subtotal + gst,
-
+      grandTotal: subtotal + gst,
     };
-
   }, [form.items]);
 
-
- 
   const summary = useMemo(() => {
-
-    const total =
-      pagination.totalRecords ||
-      holdBills.length ||
-      0;
-
-
-    const holdCount =
-      holdBills.filter(
-        (bill) =>
-          String(
-            bill.status || "Hold"
-          ).toLowerCase() ===
-          "hold"
-      ).length;
-
-
-    const convertedCount =
-      holdBills.filter(
-        (bill) =>
-          String(
-            bill.status || ""
-          ).toLowerCase() ===
-          "converted"
-      ).length;
-
-
-    const totalValue =
-      holdBills.reduce(
-        (sum, bill) =>
-          sum +
-          Number(
-            bill.grandTotal || 0
-          ),
-        0
-      );
-
+    const total = pagination.totalRecords || holdBills.length || 0;
+    const holdCount = holdBills.filter(
+      (bill) => String(bill.status || "Hold").toLowerCase() === "hold",
+    ).length;
+    const convertedCount = holdBills.filter(
+      (bill) => String(bill.status || "").toLowerCase() === "converted",
+    ).length;
+    const totalValue = holdBills.reduce(
+      (sum, bill) => sum + Number(bill.grandTotal || 0),
+      0,
+    );
 
     return {
       total,
@@ -751,1937 +369,791 @@ const Holdbills = () => {
       convertedCount,
       totalValue,
     };
-
-  }, [
-    holdBills,
-    pagination.totalRecords,
-  ]);
+  }, [holdBills, pagination.totalRecords]);
 
   const openCreate = () => {
-
     setEditingId(null);
-
     setForm({
-
       ...emptyForm,
-
-      items: [
-        {
-          ...emptyItem,
-        },
-      ],
-
+      items: [{ ...emptyItem }],
     });
-
+    setFormCustomers([]);
+    setFormProducts([]);
+    setFormVariants([]);
     setShowModal(true);
-
   };
 
   const openEdit = async (id) => {
-
     try {
-
       setSaving(true);
-
-
-      const response =
-        await getHoldBillById(id);
-
-
-      const bill =
-        response?.data ||
-        response;
-
+      const response = await getHoldBillById(id);
+      const bill = response?.data || response;
 
       if (!bill) {
-
-        alert(
-          "Hold Bill not found"
-        );
-
+        alert("Hold Bill not found");
         return;
-
       }
 
+      const storeId = bill.store?._id || bill.store || "";
+      if (storeId) {
+        await fetchStoreDependentData(storeId);
+      }
 
-      setEditingId(
-        bill._id
-      );
-
-
+      setEditingId(bill._id);
       setForm({
-
-        customer:
-          bill.customer?._id ||
-          bill.customer ||
-          "",
-
-        store:
-          bill.store?._id ||
-          bill.store ||
-          "",
-
-        remarks:
-          bill.remarks || "",
-
-        items:
-          (bill.items || []).map(
-            (item) => ({
-
-              product:
-                item.product?._id ||
-                item.product ||
-                "",
-
-              variant:
-                item.variant?._id ||
-                item.variant ||
-                "",
-
-              batch:
-                item.batch?._id ||
-                item.batch ||
-                "",
-
-              skuCode:
-                item.skuCode ||
-                item.product?.skuCode ||
-                "",
-
-              barcode:
-                item.barcode ||
-                item.product?.barcode ||
-                item.product?.barCode ||
-                "",
-
-              productName:
-                item.productName ||
-                item.product?.productName ||
-                item.product?.name ||
-                "",
-
-              quantity:
-                Number(
-                  item.quantity || 1
-                ),
-
-              salesPrice:
-                Number(
-                  item.salesPrice || 0
-                ),
-
-              discount:
-                Number(
-                  item.discount || 0
-                ),
-
-              gstPercentage:
-                Number(
-                  item.gstPercentage ||
-                    0
-                ),
-
-            })
-          ),
-
+        customer: bill.customer?._id || bill.customer || "",
+        store: storeId,
+        remarks: bill.remarks || "",
+        items: (bill.items || []).map((item) => ({
+          product: item.product?._id || item.product || "",
+          variant: item.variant?._id || item.variant || "",
+          batch: item.batch?._id || item.batch || "",
+          skuCode: item.skuCode || item.product?.skuCode || "",
+          barcode: item.barcode || item.product?.barcode || "",
+          productName:
+            item.productName || item.product?.productName || item.product?.name || "",
+          quantity: Number(item.quantity || 1),
+          salesPrice: Number(item.salesPrice || 0),
+          discount: Number(item.discount || 0),
+          gstPercentage: Number(item.gstPercentage || 0),
+        })),
       });
 
-
       setShowModal(true);
-
     } catch (error) {
-
-      console.error(
-        "Edit Hold Bill Error:",
-        error
-      );
-
-      alert(
-        error.response?.data?.message ||
-          "Unable to load Hold Bill"
-      );
-
+      console.error("Edit Hold Bill Error:", error);
+      alert(error.response?.data?.message || "Unable to load Hold Bill");
     } finally {
-
       setSaving(false);
-
     }
-
   };
 
   const handleSave = async (e) => {
-
     e.preventDefault();
 
-
     if (!form.store) {
-
-      alert(
-        "Please select a store"
-      );
-
+      alert("Please select a store");
       return;
-
     }
-
 
     if (!form.items.length) {
-
-      alert(
-        "Please add at least one item"
-      );
-
+      alert("Please add at least one item");
       return;
-
     }
 
-
-    for (
-      const item of form.items
-    ) {
-
+    for (const item of form.items) {
       if (!item.product) {
-
-        alert(
-          "Please select a product for every item"
-        );
-
+        alert("Please select a product for every item");
         return;
-
       }
-
-
-      if (
-        Number(
-          item.quantity
-        ) <= 0
-      ) {
-
-        alert(
-          "Quantity must be greater than zero"
-        );
-
+      if (Number(item.quantity) <= 0) {
+        alert("Quantity must be greater than zero");
         return;
-
       }
-
-
-      if (
-        Number(
-          item.salesPrice
-        ) < 0
-      ) {
-
-        alert(
-          "Sales price cannot be negative"
-        );
-
+      if (Number(item.salesPrice) < 0) {
+        alert("Sales price cannot be negative");
         return;
-
       }
-
     }
-
 
     try {
-
       setSaving(true);
 
-
       const payload = {
-
-        customer:
-          form.customer ||
-          undefined,
-
-        store:
-          form.store,
-
-        remarks:
-          form.remarks ||
-          "",
-
-        items:
-          form.items.map(
-            (item) => ({
-
-              product:
-                item.product,
-
-              variant:
-                item.variant ||
-                undefined,
-
-              batch:
-                item.batch ||
-                undefined,
-
-              skuCode:
-                item.skuCode ||
-                "",
-
-              barcode:
-                item.barcode ||
-                "",
-
-              productName:
-                item.productName ||
-                "",
-
-              quantity:
-                Number(
-                  item.quantity
-                ),
-
-              salesPrice:
-                Number(
-                  item.salesPrice
-                ),
-
-              discount:
-                Number(
-                  item.discount || 0
-                ),
-
-              gstPercentage:
-                Number(
-                  item.gstPercentage ||
-                    0
-                ),
-
-            })
-          ),
-
+        customer: form.customer || undefined,
+        store: form.store,
+        remarks: form.remarks || "",
+        items: form.items.map((item) => ({
+          product: item.product,
+          variant: item.variant || undefined,
+          batch: item.batch || undefined,
+          skuCode: item.skuCode || "",
+          barcode: item.barcode || "",
+          productName: item.productName || "",
+          quantity: Number(item.quantity),
+          salesPrice: Number(item.salesPrice),
+          discount: Number(item.discount || 0),
+          gstPercentage: Number(item.gstPercentage || 0),
+        })),
       };
 
-
       if (editingId) {
-
-        await updateHoldBill(
-          editingId,
-          payload
-        );
-
-        alert(
-          "Hold Bill updated successfully"
-        );
-
+        await updateHoldBill(editingId, payload);
+        alert("Hold Bill updated successfully");
       } else {
-
-        await createHoldBill(
-          payload
-        );
-
-        alert(
-          "Hold Bill created successfully"
-        );
-
+        await createHoldBill(payload);
+        alert("Hold Bill created successfully");
       }
 
-
       setShowModal(false);
-
       setEditingId(null);
-
       setForm(emptyForm);
-
       await loadHoldBills();
-
     } catch (error) {
-
-      console.error(
-        "Save Hold Bill Error:",
-        error
-      );
-
-      alert(
-        error.response?.data?.message ||
-          "Unable to save Hold Bill"
-      );
-
+      console.error("Save Hold Bill Error:", error);
+      alert(error.response?.data?.message || "Unable to save Hold Bill");
     } finally {
-
       setSaving(false);
-
     }
-
   };
 
   const handleDelete = async (id) => {
-
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this Hold Bill?"
-      );
-
-
+    const confirmed = window.confirm("Are you sure you want to delete this Hold Bill?");
     if (!confirmed) return;
 
-
     try {
-
       setSaving(true);
-
-
       await deleteHoldBill(id);
-
-
-      alert(
-        "Hold Bill deleted successfully"
-      );
-
-
+      alert("Hold Bill deleted successfully");
       await loadHoldBills();
-
     } catch (error) {
-
-      console.error(
-        "Delete Hold Bill Error:",
-        error
-      );
-
-      alert(
-        error.response?.data?.message ||
-          "Unable to delete Hold Bill"
-      );
-
+      console.error("Delete Hold Bill Error:", error);
+      alert(error.response?.data?.message || "Unable to delete Hold Bill");
     } finally {
-
       setSaving(false);
-
     }
-
   };
 
   const handleConvert = async (id) => {
-
-    const confirmed =
-      window.confirm(
-        "Convert this Hold Bill into a Sales Invoice?"
-      );
-
-
+    const confirmed = window.confirm("Convert this Hold Bill into a Sales Invoice?");
     if (!confirmed) return;
 
-
     try {
-
       setSaving(true);
-
-
-      const response =
-        await convertHoldBill(id);
-
-
-      alert(
-        response?.message ||
-          "Hold Bill converted successfully"
-      );
-
-
+      const response = await convertHoldBill(id);
+      alert(response?.message || "Hold Bill converted successfully");
       await loadHoldBills();
-
     } catch (error) {
-
-      console.error(
-        "Convert Hold Bill Error:",
-        error
-      );
-
-      alert(
-        error.response?.data?.message ||
-          "Unable to convert Hold Bill"
-      );
-
+      console.error("Convert Hold Bill Error:", error);
+      alert(error.response?.data?.message || "Unable to convert Hold Bill");
     } finally {
-
       setSaving(false);
-
     }
-
   };
 
   const money = (value) =>
-    Number(
-      value || 0
-    ).toLocaleString(
-      "en-IN",
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    );
+    Number(value || 0).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   const getStoreName = (store) => {
-
     if (!store) return "-";
-
-
-    if (
-      typeof store === "string"
-    ) {
-
-      const foundStore =
-        stores.find(
-          (item) =>
-            String(
-              item?._id
-            ) ===
-            String(store)
-        );
-
-
-      return (
-        foundStore?.storeName ||
-        foundStore?.name ||
-        foundStore?.store_code ||
-        store
+    if (typeof store === "string") {
+      const foundStore = stores.find(
+        (item) => String(item?._id) === String(store),
       );
-
+      return foundStore?.storeName || foundStore?.name || store;
     }
-
-
-    return (
-      store.storeName ||
-      store.name ||
-      "-"
-    );
-
+    return store.storeName || store.name || "-";
   };
 
-  const getCustomerName = (
-    customer
-  ) => {
-
-    if (!customer) {
-      return "Walk-in";
-    }
-
-
-    if (
-      typeof customer ===
-      "string"
-    ) {
-
-      const found =
-        customers.find(
-          (item) =>
-            String(
-              item?._id
-            ) ===
-            String(customer)
-        );
-
-
-      return (
-        found?.customerName ||
-        found?.name ||
-        "Customer"
+  const getCustomerName = (customer) => {
+    if (!customer) return "Walk-in";
+    if (typeof customer === "string") {
+      const found = formCustomers.find(
+        (item) => String(item?._id) === String(customer),
       );
-
+      return found?.customerName || found?.name || "Customer";
     }
-
-
-    return (
-      customer.customerName ||
-      customer.name ||
-      "Customer"
-    );
-
+    return customer.customerName || customer.name || "Customer";
   };
-
 
   return (
-
     <div className="hold-page">
-
       <div className="hold-content">
-
-
         <div className="page-header">
-
           <div>
-
-            <h2>
-              Hold Bills
-            </h2>
-
-            <p>
-              Manage parked and pending
-              customer bills
-            </p>
-
+            <h2>Hold Bills</h2>
+            <p>Manage parked and pending customer bills</p>
           </div>
 
-
-          <button
-            className="primary-btn"
-            onClick={openCreate}
-          >
-
+          <button className="primary-btn" onClick={openCreate}>
             <Plus size={18} />
-
             New Hold Bill
-
           </button>
-
         </div>
 
         <div className="hold-toolbar">
-
-
           <div className="hold-search-box">
-
             <Search size={18} />
-
             <input
               type="text"
               placeholder="Search hold number, product, SKU..."
               value={search}
               onChange={(e) => {
-
                 setPage(1);
-
-                setSearch(
-                  e.target.value
-                );
-
+                setSearch(e.target.value);
               }}
             />
 
-
             {search && (
-
               <button
                 className="clear-search"
                 type="button"
-                onClick={() =>
-                  setSearch("")
-                }
+                onClick={() => setSearch("")}
               >
-
                 <X size={15} />
-
               </button>
-
             )}
-
           </div>
-
 
           <select
             className="hold-filter-select"
             value={status}
             onChange={(e) => {
-
               setPage(1);
-
-              setStatus(
-                e.target.value
-              );
-
+              setStatus(e.target.value);
             }}
           >
-
-            <option value="">
-              All Status
-            </option>
-
-            <option value="Hold">
-              Hold
-            </option>
-
-            <option value="Converted">
-              Converted
-            </option>
-
-            <option value="Cancelled">
-              Cancelled
-            </option>
-
+            <option value="">All Status</option>
+            <option value="Hold">Hold</option>
+            <option value="Converted">Converted</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
         </div>
 
-
-         <div className="hold-summary-grid">
-
-
+        <div className="hold-summary-grid">
           <div className="hold-summary-card card-blue">
-
             <div className="hold-summary-icon">
-
-              <ClipboardList
-                size={22}
-              />
-
+              <ClipboardList size={22} />
             </div>
-
             <div>
-
-              <h2>
-                {summary.total}
-              </h2>
-
-              <p>
-                Total Hold Bills
-              </p>
-
+              <h2>{summary.total}</h2>
+              <p>Total Hold Bills</p>
             </div>
-
           </div>
 
           <div className="hold-summary-card card-amber">
-
             <div className="hold-summary-icon">
-
-              <Clock3
-                size={22}
-              />
-
+              <Clock3 size={22} />
             </div>
-
             <div>
-
-              <h2>
-                {summary.holdCount}
-              </h2>
-
-              <p>
-                Currently On Hold
-              </p>
-
+              <h2>{summary.holdCount}</h2>
+              <p>Currently On Hold</p>
             </div>
-
           </div>
 
           <div className="hold-summary-card card-green">
-
             <div className="hold-summary-icon">
-
-              <CheckCircle2
-                size={22}
-              />
-
+              <CheckCircle2 size={22} />
             </div>
-
             <div>
-
-              <h2>
-                {summary.convertedCount}
-              </h2>
-
-              <p>
-                Converted Bills
-              </p>
-
+              <h2>{summary.convertedCount}</h2>
+              <p>Converted Bills</p>
             </div>
-
           </div>
-
 
           <div className="hold-summary-card card-purple">
-
             <div className="hold-summary-icon">
-
-              <IndianRupee
-                size={22}
-              />
-
+              <IndianRupee size={22} />
             </div>
-
             <div>
-
-              <h2>
-                ₹{money(
-                  summary.totalValue
-                )}
-              </h2>
-
-              <p>
-                Current Page Value
-              </p>
-
+              <h2>₹{money(summary.totalValue)}</h2>
+              <p>Current Page Value</p>
             </div>
-
           </div>
-
         </div>
 
-
         {masterLoading && (
-
           <div className="info-message">
-
-            <RefreshCw
-              size={16}
-              className="spin"
-            />
-
-            Loading customers,
-            products, variants and
-            stores...
-
+            <RefreshCw size={16} className="spin" />
+            Loading store data...
           </div>
-
         )}
 
         <div className="table-card">
-
-
           <div className="table-heading">
-
             <div>
-
-              <h3>
-                Hold Bill List
-              </h3>
-
-              <span>
-                {pagination.totalRecords ||
-                  holdBills.length ||
-                  0}{" "}
-                records
-              </span>
-
+              <h3>Hold Bill List</h3>
+              <span>{pagination.totalRecords || holdBills.length || 0} records</span>
             </div>
-
           </div>
 
           {loading ? (
-
             <div className="loading-state">
-
-              <RefreshCw
-                size={22}
-                className="spin"
-              />
-
-              <span>
-                Loading Hold Bills...
-              </span>
-
+              <RefreshCw size={22} className="spin" />
+              <span>Loading Hold Bills...</span>
             </div>
-
-
           ) : holdBills.length === 0 ? (
-
             <div className="empty-state">
-
-              <FileText
-                size={42}
-              />
-
-              <h3>
-                No Hold Bills Found
-              </h3>
-
-              <p>
-                Create a new Hold Bill
-                to get started.
-              </p>
-
-              <button
-                className="primary-btn"
-                onClick={openCreate}
-              >
-
+              <FileText size={42} />
+              <h3>No Hold Bills Found</h3>
+              <p>Create a new Hold Bill to get started.</p>
+              <button className="primary-btn" onClick={openCreate}>
                 <Plus size={17} />
-
                 Create Hold Bill
-
               </button>
-
             </div>
-
-
           ) : (
-
             <div className="table-wrapper">
-
               <table className="hold-table">
-
                 <thead>
-
                   <tr>
-
-                    <th>
-                      Hold No
-                    </th>
-
-                    <th>
-                      Customer
-                    </th>
-
-                    <th>
-                      Store
-                    </th>
-
-                    <th>
-                      Items
-                    </th>
-
-                    <th>
-                      Quantity
-                    </th>
-
-                    <th>
-                      Total
-                    </th>
-
-                    <th>
-                      Status
-                    </th>
-
-                    <th>
-                      Created
-                    </th>
-
-                    <th>
-                      Actions
-                    </th>
-
+                    <th>Hold No</th>
+                    <th>Customer</th>
+                    <th>Store</th>
+                    <th>Items</th>
+                    <th>Quantity</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
                   </tr>
-
                 </thead>
 
-
                 <tbody>
+                  {holdBills.map((bill) => (
+                    <tr key={bill._id}>
+                      <td>
+                        <strong className="hold-no">{bill.holdNo || "-"}</strong>
+                      </td>
 
-                  {holdBills.map(
-                    (bill) => (
+                      <td>{getCustomerName(bill.customer)}</td>
+                      <td>{getStoreName(bill.store)}</td>
+                      <td>{bill.totalItems ?? bill.items?.length ?? 0}</td>
+                      <td>{bill.totalQuantity ?? 0}</td>
 
-                      <tr
-                        key={
-                          bill._id
-                        }
-                      >
+                      <td>
+                        <strong>₹{money(bill.grandTotal)}</strong>
+                      </td>
 
-                        <td>
+                      <td>
+                        <span
+                          className={`status-pill status-${String(
+                            bill.status || "Hold",
+                          ).toLowerCase()}`}
+                        >
+                          {bill.status || "Hold"}
+                        </span>
+                      </td>
 
-                          <strong className="hold-no">
+                      <td>
+                        {bill.createdAt
+                          ? new Date(bill.createdAt).toLocaleDateString("en-IN")
+                          : "-"}
+                      </td>
 
-                            {bill.holdNo ||
-                              "-"}
+                      <td>
+                        <div className="action-btns">
+                          {bill.status !== "Converted" && (
+                            <>
+                              <button
+                                type="button"
+                                className="edit-btn"
+                                title="Edit"
+                                onClick={() => openEdit(bill._id)}
+                              >
+                                <Edit size={16} />
+                              </button>
 
-                          </strong>
+                              <button
+                                type="button"
+                                className="delete-btn"
+                                title="Delete"
+                                onClick={() => handleDelete(bill._id)}
+                              >
+                                <Trash2 size={16} />
+                              </button>
 
-                        </td>
-
-
-                        <td>
-
-                          {getCustomerName(
-                            bill.customer
+                              <button
+                                type="button"
+                                className="convert-btn"
+                                disabled={saving}
+                                onClick={() => handleConvert(bill._id)}
+                              >
+                                Convert
+                              </button>
+                            </>
                           )}
 
-                        </td>
-
-
-                        <td>
-
-                          {getStoreName(
-                            bill.store
+                          {bill.status === "Converted" && (
+                            <span className="converted-label">Invoice Created</span>
                           )}
-
-                        </td>
-
-
-                        <td>
-
-                          {bill.totalItems ??
-                            bill.items
-                              ?.length ??
-                            0}
-
-                        </td>
-
-
-                        <td>
-
-                          {bill.totalQuantity ??
-                            0}
-
-                        </td>
-
-
-                        <td>
-
-                          <strong>
-
-                            ₹
-                            {money(
-                              bill.grandTotal
-                            )}
-
-                          </strong>
-
-                        </td>
-
-
-                        <td>
-
-                          <span
-                            className={`status-pill status-${String(
-                              bill.status ||
-                                "Hold"
-                            ).toLowerCase()}`}
-                          >
-
-                            {bill.status ||
-                              "Hold"}
-
-                          </span>
-
-                        </td>
-
-
-                        <td>
-
-                          {bill.createdAt
-                            ? new Date(
-                                bill.createdAt
-                              ).toLocaleDateString(
-                                "en-IN"
-                              )
-                            : "-"}
-
-                        </td>
-
-
-                        <td>
-
-                          <div className="action-btns">
-
-
-                            {bill.status !==
-                              "Converted" && (
-
-                              <>
-
-                                <button
-                                  type="button"
-                                  className="edit-btn"
-                                  title="Edit"
-                                  onClick={() =>
-                                    openEdit(
-                                      bill._id
-                                    )
-                                  }
-                                >
-
-                                  <Edit
-                                    size={16}
-                                  />
-
-                                </button>
-
-
-                                <button
-                                  type="button"
-                                  className="delete-btn"
-                                  title="Delete"
-                                  onClick={() =>
-                                    handleDelete(
-                                      bill._id
-                                    )
-                                  }
-                                >
-
-                                  <Trash2
-                                    size={16}
-                                  />
-
-                                </button>
-
-
-                                <button
-                                  type="button"
-                                  className="convert-btn"
-                                  disabled={
-                                    saving
-                                  }
-                                  onClick={() =>
-                                    handleConvert(
-                                      bill._id
-                                    )
-                                  }
-                                >
-
-                                  Convert
-
-                                </button>
-
-                              </>
-
-                            )}
-
-
-                            {bill.status ===
-                              "Converted" && (
-
-                              <span className="converted-label">
-
-                                Invoice Created
-
-                              </span>
-
-                            )}
-
-                          </div>
-
-                        </td>
-
-                      </tr>
-
-                    )
-                  )}
-
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
-
               </table>
-
             </div>
-
           )}
-
-
         </div>
 
-
-      
         {showModal && (
-
           <div className="modal-overlay">
-
             <div className="hold-modal">
-
               <div className="modal-header">
-
                 <div>
-
-                  <h3>
-
-                    {editingId
-                      ? "Edit Hold Bill"
-                      : "Create Hold Bill"}
-
-                  </h3>
-
-                  <p>
-                    Add customer, store
-                    and product details
-                  </p>
-
+                  <h3>{editingId ? "Edit Hold Bill" : "Create Hold Bill"}</h3>
+                  <p>Add store-wise customer and product details</p>
                 </div>
-
 
                 <button
                   type="button"
                   className="close-btn"
                   disabled={saving}
                   onClick={() => {
-
-                    if (!saving) {
-
-                      setShowModal(
-                        false
-                      );
-
-                    }
-
+                    if (!saving) setShowModal(false);
                   }}
                 >
-
                   <X size={19} />
-
                 </button>
-
               </div>
 
-              <form
-                onSubmit={handleSave}
-                className="modal-body"
-              >
-
-                <div className="section-title">
-
-                  Bill Information
-
-                </div>
-
+              <form onSubmit={handleSave} className="modal-body">
+                <div className="section-title">Bill Information</div>
 
                 <div className="form-grid">
-
                   <div className="form-group">
-
-                    <label>
-                      Customer
-                    </label>
-
+                    <label>Store *</label>
                     <select
-                      value={
-                        form.customer
-                      }
-                      onChange={(e) =>
-                        setForm(
-                          (prev) => ({
-                            ...prev,
-                            customer:
-                              e.target
-                                .value,
-                          })
-                        )
-                      }
+                      value={form.store}
+                      onChange={(e) => {
+                        const storeId = e.target.value;
+                        setForm((prev) => ({
+                          ...prev,
+                          store: storeId,
+                          customer: "",
+                          items: [{ ...emptyItem }],
+                        }));
+                        if (storeId) {
+                          fetchStoreDependentData(storeId);
+                        } else {
+                          setFormCustomers([]);
+                          setFormProducts([]);
+                          setFormVariants([]);
+                        }
+                      }}
+                      required
                     >
-
-                      <option value="">
-                        Walk-in Customer
-                      </option>
-
-
-                      {customers.map(
-                        (customer) => (
-
-                          <option
-                            key={
-                              customer._id
-                            }
-                            value={
-                              customer._id
-                            }
-                          >
-
-                            {customer.customerName ||
-                              customer.name ||
-                              "Customer"}
-
-                            {customer.customerCode
-                              ? ` - ${customer.customerCode}`
-                              : ""}
-
-                          </option>
-
-                        )
-                      )}
-
+                      <option value="">Select Store</option>
+                      {stores.map((store) => (
+                        <option key={store._id} value={store._id}>
+                          {store.storeName}
+                          {store.storeCode ? ` - ${store.storeCode}` : ""}
+                        </option>
+                      ))}
                     </select>
-
                   </div>
 
                   <div className="form-group">
-
-                    <label>
-                      Store *
-                    </label>
-
+                    <label>Customer</label>
                     <select
-                      value={
-                        form.store
-                      }
+                      value={form.customer}
+                      disabled={!form.store}
                       onChange={(e) =>
-                        setForm(
-                          (prev) => ({
-                            ...prev,
-                            store:
-                              e.target
-                                .value,
-                          })
-                        )
+                        setForm((prev) => ({
+                          ...prev,
+                          customer: e.target.value,
+                        }))
                       }
-                      required
                     >
-
                       <option value="">
-                        Select Store
+                        {form.store ? "Walk-in Customer" : "Select a store first"}
                       </option>
-
-
-                      {stores.map(
-                        (store) => (
-
-                          <option
-                            key={
-                              store._id
-                            }
-                            value={
-                              store._id
-                            }
-                          >
-
-                            {store.storeName ||
-                              store.name ||
-                              "Store"}
-
-                            {store.storeCode
-                              ? ` - ${store.storeCode}`
-                              : ""}
-
+                      {formCustomers
+                        .filter((customer) => {
+                          const custStoreId = customer.store?._id || customer.store || "";
+                          return !form.store || String(custStoreId) === String(form.store);
+                        })
+                        .map((customer) => (
+                          <option key={customer._id} value={customer._id}>
+                            {customer.customerName || customer.name || "Customer"}
+                            {customer.customerCode ? ` - ${customer.customerCode}` : ""}
                           </option>
-
-                        )
-                      )}
-
+                        ))}
                     </select>
-
                   </div>
 
                   <div className="form-group form-group-full">
-
-                    <label>
-                      Remarks
-                    </label>
-
+                    <label>Remarks</label>
                     <textarea
                       rows="2"
                       placeholder="Optional remarks"
-                      value={
-                        form.remarks
-                      }
+                      value={form.remarks}
                       onChange={(e) =>
-                        setForm(
-                          (prev) => ({
-                            ...prev,
-                            remarks:
-                              e.target
-                                .value,
-                          })
-                        )
+                        setForm((prev) => ({
+                          ...prev,
+                          remarks: e.target.value,
+                        }))
                       }
                     />
-
                   </div>
-
                 </div>
 
-                <div className="section-title">
-
-                  Bill Items
-
-                </div>
-
+                <div className="section-title">Bill Items</div>
 
                 <div className="items-header">
-
                   <div>
-
-                    <strong>
-                      Items
-                    </strong>
-
-                    <span>
-                      {form.items.length}{" "}
-                      item(s)
-                    </span>
-
+                    <strong>Items</strong>
+                    <span>{form.items.length} item(s)</span>
                   </div>
-
 
                   <button
                     type="button"
                     className="add-item-btn"
                     onClick={addItem}
+                    disabled={!form.store}
                   >
-
                     <Plus size={16} />
-
                     Add Item
-
                   </button>
-
                 </div>
-
 
                 <div className="items-list">
-
-
-                  {form.items.map(
-                    (item, index) => (
-
-                      <div
-                        className="item-card"
-                        key={index}
-                      >
-
-                        <div className="item-top">
-
-                          <div>
-
-                            <strong>
-                              Item{" "}
-                              {index + 1}
-                            </strong>
-
-                            {item.barcode && (
-
-                              <span className="item-barcode-label">
-
-                                Barcode:{" "}
-                                {item.barcode}
-
-                              </span>
-
-                            )}
-
-                          </div>
-
-
-                          {form.items.length >
-                            1 && (
-
-                            <button
-                              type="button"
-                              className="remove-item"
-                              title="Remove item"
-                              onClick={() =>
-                                removeItem(
-                                  index
-                                )
-                              }
-                            >
-
-                              <Trash2
-                                size={16}
-                              />
-
-                            </button>
-
+                  {form.items.map((item, index) => (
+                    <div className="item-card" key={index}>
+                      <div className="item-top">
+                        <div>
+                          <strong>Item {index + 1}</strong>
+                          {item.barcode && (
+                            <span className="item-barcode-label">
+                              Barcode: {item.barcode}
+                            </span>
                           )}
-
                         </div>
 
-                        <div className="item-grid">
-
-                          <div className="form-group product-field">
-
-                            <label>
-                              Product *
-                            </label>
-
-                            <select
-                              value={
-                                item.product
-                              }
-                              onChange={(e) =>
-                                handleProductChange(
-                                  index,
-                                  e.target
-                                    .value
-                                )
-                              }
-                              required
-                            >
-
-                              <option value="">
-                                Select Product
-                              </option>
-
-
-                              {products.map(
-                                (
-                                  product
-                                ) => (
-
-                                  <option
-                                    key={
-                                      product._id
-                                    }
-                                    value={
-                                      product._id
-                                    }
-                                  >
-
-                                    {getProductName(
-                                      product
-                                    )}
-
-                                    {getProductSku(
-                                      product
-                                    )
-                                      ? ` (${getProductSku(
-                                          product
-                                        )})`
-                                      : ""}
-
-                                  </option>
-
-                                )
-                              )}
-
-                            </select>
-
-                          </div>
-
-                          <div className="form-group">
-
-                            <label>
-                              Variant
-                            </label>
-
-                            <select
-                              value={
-                                item.variant
-                              }
-                              onChange={(e) =>
-                                handleVariantChange(
-                                  index,
-                                  e.target
-                                    .value
-                                )
-                              }
-                            >
-
-                              <option value="">
-                                No Variant
-                              </option>
-
-
-                              {variants
-                                .filter(
-                                  (
-                                    variant
-                                  ) => {
-
-                                    const variantProduct =
-                                      variant.product?._id ||
-                                      variant.product;
-
-
-                                    if (
-                                      !item.product
-                                    ) {
-
-                                      return true;
-
-                                    }
-
-
-                                    return (
-                                      !variantProduct ||
-                                      String(
-                                        variantProduct
-                                      ) ===
-                                        String(
-                                          item.product
-                                        )
-                                    );
-
-                                  }
-                                )
-                                .map(
-                                  (
-                                    variant
-                                  ) => (
-
-                                    <option
-                                      key={
-                                        variant._id
-                                      }
-                                      value={
-                                        variant._id
-                                      }
-                                    >
-
-                                      {variant.variantName ||
-                                        variant.name ||
-                                        variant.skuCode ||
-                                        "Variant"}
-
-                                    </option>
-
-                                  )
-                                )}
-
-                            </select>
-
-                          </div>
-
-
-                          <div className="form-group">
-
-                            <label>
-                              Quantity *
-                            </label>
-
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={
-                                item.quantity
-                              }
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "quantity",
-                                  e.target
-                                    .value
-                                )
-                              }
-                              required
-                            />
-
-                          </div>
-
-
-                          <div className="form-group">
-
-                            <label>
-                              Sales Price
-                            </label>
-
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={
-                                item.salesPrice
-                              }
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "salesPrice",
-                                  e.target
-                                    .value
-                                )
-                              }
-                            />
-
-                          </div>
-
-                          <div className="form-group">
-
-                            <label>
-                              Discount
-                            </label>
-
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={
-                                item.discount
-                              }
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "discount",
-                                  e.target
-                                    .value
-                                )
-                              }
-                            />
-
-                          </div>
-
-
-                          <div className="form-group">
-
-                            <label>
-                              GST %
-                            </label>
-
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={
-                                item.gstPercentage
-                              }
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "gstPercentage",
-                                  e.target
-                                    .value
-                                )
-                              }
-                            />
-
-                          </div>
-
-
-                          <div className="form-group">
-
-                            <label>
-                              SKU
-                            </label>
-
-                            <input
-                              type="text"
-                              value={
-                                item.skuCode
-                              }
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "skuCode",
-                                  e.target
-                                    .value
-                                )
-                              }
-                              placeholder="Auto-filled from product"
-                            />
-
-                          </div>
-
-                          <div className="form-group">
-
-                            <label>
-                              Barcode
-                            </label>
-
-                            <div className="barcode-input">
-
-                              <input
-                                type="text"
-                                value={
-                                  item.barcode
-                                }
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "barcode",
-                                    e.target
-                                      .value
-                                  )
-                                }
-                                placeholder="Select product to auto-fill"
-                              />
-
-
-                              {item.barcode && (
-
-                                <span className="barcode-status">
-
-                                  ✓
-
-                                </span>
-
-                              )}
-
-                            </div>
-
-                          </div>
-
-
-                        </div>
-
-                        {item.productName && (
-
-                          <div className="selected-product-info">
-
-                            <div>
-
-                              <span>
-                                Product
-                              </span>
-
-                              <strong>
-                                {
-                                  item.productName
-                                }
-                              </strong>
-
-                            </div>
-
-
-                            <div>
-
-                              <span>
-                                SKU
-                              </span>
-
-                              <strong>
-                                {item.skuCode ||
-                                  "-"}
-
-                              </strong>
-
-                            </div>
-
-
-                            <div>
-
-                              <span>
-                                Barcode
-                              </span>
-
-                              <strong className="barcode-value">
-
-                                {item.barcode ||
-                                  "No barcode"}
-
-                              </strong>
-
-                            </div>
-
-                          </div>
-
+                        {form.items.length > 1 && (
+                          <button
+                            type="button"
+                            className="remove-item"
+                            title="Remove item"
+                            onClick={() => removeItem(index)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         )}
-
                       </div>
 
-                    )
-                  )}
+                      <div className="item-grid">
+                        <div className="form-group product-field">
+                          <label>Product *</label>
+                          <select
+                            value={item.product}
+                            disabled={!form.store}
+                            onChange={(e) =>
+                              handleProductChange(index, e.target.value)
+                            }
+                            required
+                          >
+                            <option value="">
+                              {form.store ? "Select Product" : "Select a store first"}
+                            </option>
+                            {formProducts
+                              .filter((product) => {
+                                const prodStoreId = product.store?._id || product.store || "";
+                                return !form.store || String(prodStoreId) === String(form.store);
+                              })
+                              .map((product) => (
+                                <option key={product._id} value={product._id}>
+                                  {getProductName(product)}
+                                  {getProductSku(product)
+                                    ? ` (${getProductSku(product)})`
+                                    : ""}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
 
+                        <div className="form-group">
+                          <label>Variant</label>
+                          <select
+                            value={item.variant}
+                            disabled={!item.product}
+                            onChange={(e) =>
+                              handleVariantChange(index, e.target.value)
+                            }
+                          >
+                            <option value="">No Variant</option>
+                            {formVariants
+                              .filter((variant) => {
+                                const variantProduct =
+                                  variant.product?._id || variant.product;
+                                if (!item.product) return true;
+                                return (
+                                  !variantProduct ||
+                                  String(variantProduct) === String(item.product)
+                                );
+                              })
+                              .map((variant) => (
+                                <option key={variant._id} value={variant._id}>
+                                  {variant.variantName ||
+                                    variant.name ||
+                                    variant.skuCode ||
+                                    "Variant"}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label>Quantity *</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleItemChange(index, "quantity", e.target.value)
+                            }
+                            required
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Sales Price</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.salesPrice}
+                            onChange={(e) =>
+                              handleItemChange(index, "salesPrice", e.target.value)
+                            }
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Discount</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.discount}
+                            onChange={(e) =>
+                              handleItemChange(index, "discount", e.target.value)
+                            }
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>GST %</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.gstPercentage}
+                            onChange={(e) =>
+                              handleItemChange(
+                                index,
+                                "gstPercentage",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>SKU</label>
+                          <input
+                            type="text"
+                            value={item.skuCode}
+                            onChange={(e) =>
+                              handleItemChange(index, "skuCode", e.target.value)
+                            }
+                            placeholder="Auto-filled"
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Barcode</label>
+                          <div className="barcode-input">
+                            <input
+                              type="text"
+                              value={item.barcode}
+                              onChange={(e) =>
+                                handleItemChange(index, "barcode", e.target.value)
+                              }
+                              placeholder="Auto-filled"
+                            />
+                            {item.barcode && <span className="barcode-status">✓</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {item.productName && (
+                        <div className="selected-product-info">
+                          <div>
+                            <span>Product</span>
+                            <strong>{item.productName}</strong>
+                          </div>
+                          <div>
+                            <span>SKU</span>
+                            <strong>{item.skuCode || "-"}</strong>
+                          </div>
+                          <div>
+                            <span>Barcode</span>
+                            <strong className="barcode-value">
+                              {item.barcode || "No barcode"}
+                            </strong>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
-                <div className="section-title">
-
-                  Bill Summary
-
-                </div>
-
+                <div className="section-title">Bill Summary</div>
 
                 <div className="totals-card">
-
-
                   <div>
-
-                    <span>
-                      Items
-                    </span>
-
-                    <strong>
-                      {form.items.length}
-                    </strong>
-
+                    <span>Items</span>
+                    <strong>{form.items.length}</strong>
                   </div>
 
-
                   <div>
-
-                    <span>
-                      Quantity
-                    </span>
-
-                    <strong>
-                      {totals.quantity}
-                    </strong>
-
+                    <span>Quantity</span>
+                    <strong>{totals.quantity}</strong>
                   </div>
 
-
                   <div>
-
-                    <span>
-                      Subtotal
-                    </span>
-
-                    <strong>
-                      ₹
-                      {money(
-                        totals.subtotal
-                      )}
-                    </strong>
-
+                    <span>Subtotal</span>
+                    <strong>₹{money(totals.subtotal)}</strong>
                   </div>
 
-
                   <div>
-
-                    <span>
-                      Discount
-                    </span>
-
-                    <strong>
-                      ₹
-                      {money(
-                        totals.discount
-                      )}
-                    </strong>
-
+                    <span>Discount</span>
+                    <strong>₹{money(totals.discount)}</strong>
                   </div>
 
-
                   <div>
-
-                    <span>
-                      GST
-                    </span>
-
-                    <strong>
-                      ₹
-                      {money(
-                        totals.gst
-                      )}
-                    </strong>
-
+                    <span>GST</span>
+                    <strong>₹{money(totals.gst)}</strong>
                   </div>
-
 
                   <div className="grand-total">
-
-                    <span>
-                      Grand Total
-                    </span>
-
-                    <strong>
-                      ₹
-                      {money(
-                        totals.grandTotal
-                      )}
-                    </strong>
-
+                    <span>Grand Total</span>
+                    <strong>₹{money(totals.grandTotal)}</strong>
                   </div>
-
-
                 </div>
 
                 <div className="modal-footer">
-
-
                   <button
                     type="button"
                     className="cancel-btn"
                     disabled={saving}
-                    onClick={() =>
-                      setShowModal(
-                        false
-                      )
-                    }
+                    onClick={() => setShowModal(false)}
                   >
-
                     Cancel
-
                   </button>
 
-
-                  <button
-                    type="submit"
-                    className="save-btn"
-                    disabled={saving}
-                  >
-
+                  <button type="submit" className="save-btn" disabled={saving}>
                     <Save size={17} />
-
                     {saving
                       ? "Saving..."
                       : editingId
                       ? "Update Hold Bill"
                       : "Save Hold Bill"}
-
                   </button>
-
-
                 </div>
-
-
               </form>
-
             </div>
-
           </div>
-
         )}
-
       </div>
-
     </div>
-
   );
-
 };
-
 
 export default Holdbills;

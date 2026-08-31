@@ -59,29 +59,33 @@ export default function ProductVariant() {
   const [warehouses, setWarehouses] = useState([]);
   const [shelves, setShelves] = useState([]);
 
+  // Store & Warehouse filtered lists for toolbar filters
+  const [filterProducts, setFilterProducts] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("");
   const [productFilter, setProductFilter] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(emptyVariant);
-  const [existingImages, setExistingImages] = useState([]); // already-saved paths, kept unless removed
-  const [newImageFiles, setNewImageFiles] = useState([]); // File objects picked from device, not yet uploaded
-  const [newImagePreviews, setNewImagePreviews] = useState([]); // matching blob: preview URLs
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImageFiles, setNewImageFiles] = useState([]);
+  const [newImagePreviews, setNewImagePreviews] = useState([]);
 
   const fetchVariants = async () => {
     try {
       setLoading(true);
-
       const res = await getVariants({
         search: search || undefined,
         status: statusFilter || undefined,
         store: storeFilter || undefined,
+        warehouse: warehouseFilter || undefined,
         product: productFilter || undefined,
       });
 
@@ -98,55 +102,66 @@ export default function ProductVariant() {
     }
   };
 
-  const fetchDropdownData = async () => {
- 
-    try {
-      const productRes = await getProducts();
-      if (productRes.data.success) setProducts(productRes.data.data || []);
-    } catch (err) {
-      console.log("Failed to load products:", err);
-    }
-
+  const fetchGlobalStores = async () => {
     try {
       const storeRes = await getStores();
       if (storeRes.success) setStores(storeRes.data || []);
     } catch (err) {
       console.log("Failed to load stores:", err);
     }
+  };
 
+  // Fetch store-dependent warehouses and general lists
+  const fetchStoreDependentData = async (storeId) => {
     try {
-      const unitRes = await getUnits();
-      if (unitRes.success) setUnits(unitRes.data || []);
+      const params = storeId ? { store: storeId } : {};
+      const [unitRes, whRes, shelfRes] = await Promise.all([
+        getUnits(params),
+        getWarehouses(params),
+        getShelves(params),
+      ]);
+
+      setUnits(unitRes?.data?.data || unitRes?.data || []);
+      setWarehouses(whRes?.data?.data || whRes?.data?.warehouses || whRes?.data || []);
+      setShelves(shelfRes?.data?.data || shelfRes?.data?.shelves || shelfRes?.data || []);
     } catch (err) {
-      console.log("Failed to load units:", err);
+      console.log("Store dependent fetch error:", err);
     }
+  };
 
+  // Fetch store & warehouse dependent products
+  const fetchWarehouseDependentProducts = async (storeId, warehouseId, isForFilter = false) => {
     try {
-      const warehouseRes = await getWarehouses();
-      if (warehouseRes.success) setWarehouses(warehouseRes.data || []);
-    } catch (err) {
-      console.log("Failed to load warehouses:", err);
-    }
+      const params = {};
+      if (storeId) params.store = storeId;
+      if (warehouseId) params.warehouse = warehouseId;
 
-    try {
-      const shelfRes = await getShelves();
-      if (shelfRes.success) setShelves(shelfRes.data || []);
+      const prodRes = await getProducts(params);
+      const prodList = prodRes?.data?.data || prodRes?.data?.products || prodRes?.data || [];
+
+      if (isForFilter) {
+        setFilterProducts(prodList);
+      } else {
+        setProducts(prodList);
+      }
     } catch (err) {
-      console.log("Failed to load shelves:", err);
+      console.log("Warehouse dependent product fetch error:", err);
     }
   };
 
   useEffect(() => {
-    fetchDropdownData();
+    fetchGlobalStores();
+    fetchWarehouseDependentProducts("", "", true);
   }, []);
 
   useEffect(() => {
+    fetchWarehouseDependentProducts(storeFilter, warehouseFilter, true);
     const timer = setTimeout(() => {
       fetchVariants();
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [search, statusFilter, storeFilter, productFilter]);
+  }, [search, statusFilter, storeFilter, warehouseFilter, productFilter]);
 
   const filteredVariants = useMemo(() => variants, [variants]);
 
@@ -160,12 +175,33 @@ export default function ProductVariant() {
   const shelvesForFormWarehouse = useMemo(() => {
     if (!formData.warehouse) return [];
     return shelves.filter(
-      (s) => (s.warehouse?._id || s.warehouse) === formData.warehouse
+      (s) => String(s.warehouse?._id || s.warehouse) === String(formData.warehouse)
     );
   }, [shelves, formData.warehouse]);
 
-  const updateField = (key, value) => {
+  const updateField = async (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+
+    if (key === "store") {
+      await fetchStoreDependentData(value);
+      await fetchWarehouseDependentProducts(value, "", false);
+      setFormData((prev) => ({
+        ...prev,
+        warehouse: "",
+        shelf: "",
+        product: "",
+        unit: "",
+      }));
+    }
+
+    if (key === "warehouse") {
+      await fetchWarehouseDependentProducts(formData.store, value, false);
+      setFormData((prev) => ({
+        ...prev,
+        shelf: "",
+        product: "",
+      }));
+    }
   };
 
   const openAddModal = () => {
@@ -177,10 +213,18 @@ export default function ProductVariant() {
     setShowModal(true);
   };
 
-  const openEditModal = (variant) => {
+  const openEditModal = async (variant) => {
     setEditingId(variant._id);
+    const storeId = variant.store?._id || variant.store || "";
+    const whId = variant.warehouse?._id || variant.warehouse || "";
+
+    if (storeId) {
+      await fetchStoreDependentData(storeId);
+      await fetchWarehouseDependentProducts(storeId, whId, false);
+    }
+
     setFormData({
-      store: variant.store?._id || variant.store || "",
+      store: storeId,
       product: variant.product?._id || variant.product || "",
       skuCode: variant.skuCode || "",
       barcode: variant.barcode || "",
@@ -194,13 +238,12 @@ export default function ProductVariant() {
       gstPercentage: variant.gstPercentage ?? 0,
       currentStock: variant.currentStock ?? 0,
       minimumStock: variant.minimumStock ?? 5,
-      warehouse: variant.warehouse?._id || variant.warehouse || "",
+      warehouse: whId,
       shelf: variant.shelf?._id || variant.shelf || "",
       status: variant.status || "active",
     });
-    setExistingImages(
-      Array.isArray(variant.imageUrls) ? variant.imageUrls : []
-    );
+
+    setExistingImages(Array.isArray(variant.imageUrls) ? variant.imageUrls : []);
     setNewImageFiles([]);
     setNewImagePreviews([]);
     setShowModal(true);
@@ -238,11 +281,9 @@ export default function ProductVariant() {
   };
 
   useEffect(() => {
-
     return () => {
       newImagePreviews.forEach((url) => URL.revokeObjectURL(url));
     };
-  
   }, []);
 
   const handleSubmit = async () => {
@@ -254,9 +295,7 @@ export default function ProductVariant() {
       !formData.sellingPrice ||
       !formData.mrp
     ) {
-      alert(
-        "Store, Product, SKU Code, Barcode, Selling Price and MRP are required."
-      );
+      alert("Store, Product, SKU Code, Barcode, Selling Price and MRP are required.");
       return;
     }
 
@@ -303,11 +342,7 @@ export default function ProductVariant() {
   };
 
   const handleDelete = async (id) => {
-    if (
-      !window.confirm(
-        "Permanently delete this product variant? This cannot be undone."
-      )
-    )
+    if (!window.confirm("Permanently delete this product variant? This cannot be undone."))
       return;
 
     try {
@@ -330,7 +365,6 @@ export default function ProductVariant() {
   return (
     <div className="variant-page">
       <div className="variant-content">
-      
         <div className="page-header">
           <div>
             <h2>Product Variants</h2>
@@ -343,7 +377,6 @@ export default function ProductVariant() {
           </button>
         </div>
 
-        
         <div className="variants-toolbar">
           <div className="variants-search-box">
             <Search size={18} />
@@ -358,7 +391,13 @@ export default function ProductVariant() {
           <select
             className="variants-filter-select"
             value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
+            onChange={async (e) => {
+              const val = e.target.value;
+              setStoreFilter(val);
+              setWarehouseFilter("");
+              setProductFilter("");
+              await fetchWarehouseDependentProducts(val, "", true);
+            }}
           >
             <option value="">All Stores</option>
             {stores.map((s) => (
@@ -370,11 +409,34 @@ export default function ProductVariant() {
 
           <select
             className="variants-filter-select"
+            value={warehouseFilter}
+            onChange={async (e) => {
+              const val = e.target.value;
+              setWarehouseFilter(val);
+              setProductFilter("");
+              await fetchWarehouseDependentProducts(storeFilter, val, true);
+            }}
+            disabled={!storeFilter}
+          >
+            <option value="">
+              {storeFilter ? "All Warehouses" : "Select a store first"}
+            </option>
+            {warehouses
+              .filter((w) => String(w.store?._id || w.store) === String(storeFilter))
+              .map((w) => (
+                <option key={w._id} value={w._id}>
+                  {w.warehouseName}
+                </option>
+              ))}
+          </select>
+
+          <select
+            className="variants-filter-select"
             value={productFilter}
             onChange={(e) => setProductFilter(e.target.value)}
           >
             <option value="">All Products</option>
-            {products.map((p) => (
+            {filterProducts.map((p) => (
               <option key={p._id} value={p._id}>
                 {p.productName}
               </option>
@@ -391,7 +453,6 @@ export default function ProductVariant() {
             <option value="inactive">Inactive</option>
           </select>
         </div>
-
 
         <div className="variant-summary-grid">
           <div className="variant-summary-card card-blue">
@@ -460,20 +521,21 @@ export default function ProductVariant() {
 
                   return (
                     <tr key={variant._id}>
-                        <td>
-  <div className="variant-table-image">
-    {variant.imageUrls?.length > 0 ? (
-      <img
-        src={resolveVariantImageUrl(variant.imageUrls[0])}
-        alt={variant.variantName || "Variant"}
-      />
-    ) : (
-      <div className="no-variant-image">
-        <Tags size={18} />
-      </div>
-    )}
-  </div>
-</td>
+                      <td>
+                        <div className="variant-table-image">
+                          {variant.imageUrls?.length > 0 ? (
+                            <img
+                              src={resolveVariantImageUrl(variant.imageUrls[0])}
+                              alt={variant.variantName || "Variant"}
+                            />
+                          ) : (
+                            <div className="no-variant-image">
+                              <Tags size={18} />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
                       <td>
                         <div className="variant-info">
                           <strong>
@@ -485,7 +547,7 @@ export default function ProductVariant() {
                           </p>
                         </div>
                       </td>
-       
+
                       <td>{variant.product?.productName || "—"}</td>
 
                       <td>
@@ -591,12 +653,39 @@ export default function ProductVariant() {
                   </div>
 
                   <div className="form-group">
+                    <label>Warehouse</label>
+                    <select
+                      value={formData.warehouse}
+                      onChange={(e) => updateField("warehouse", e.target.value)}
+                      disabled={!formData.store}
+                    >
+                      <option value="">
+                        {formData.store ? "Select Warehouse" : "Select a store first"}
+                      </option>
+                      {warehouses
+                        .filter((w) => String(w.store?._id || w.store) === String(formData.store))
+                        .map((w) => (
+                          <option key={w._id} value={w._id}>
+                            {w.warehouseName}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
                     <label>Product *</label>
                     <select
                       value={formData.product}
                       onChange={(e) => updateField("product", e.target.value)}
+                      disabled={!formData.store || !formData.warehouse}
                     >
-                      <option value="">Select Product</option>
+                      <option value="">
+                        {!formData.store
+                          ? "Select a store first"
+                          : !formData.warehouse
+                          ? "Select a warehouse first"
+                          : "Select Product"}
+                      </option>
                       {products.map((p) => (
                         <option key={p._id} value={p._id}>
                           {p.productName}
@@ -650,8 +739,11 @@ export default function ProductVariant() {
                     <select
                       value={formData.unit}
                       onChange={(e) => updateField("unit", e.target.value)}
+                      disabled={!formData.store}
                     >
-                      <option value="">Select Unit</option>
+                      <option value="">
+                        {formData.store ? "Select Unit" : "Select a store first"}
+                      </option>
                       {units.map((u) => (
                         <option key={u._id} value={u._id}>
                           {u.unitName} ({u.shortName})
@@ -760,24 +852,6 @@ export default function ProductVariant() {
                   </div>
 
                   <div className="form-group">
-                    <label>Warehouse</label>
-                    <select
-                      value={formData.warehouse}
-                      onChange={(e) => {
-                        updateField("warehouse", e.target.value);
-                        updateField("shelf", ""); // reset dependent field
-                      }}
-                    >
-                      <option value="">Select Warehouse</option>
-                      {warehouses.map((w) => (
-                        <option key={w._id} value={w._id}>
-                          {w.warehouseName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
                     <label>Shelf</label>
                     <select
                       value={formData.shelf}
@@ -859,8 +933,9 @@ export default function ProductVariant() {
               </div>
             </div>
           </div>
-        )}
-      </div>
+        
+      )}
+    </div>
     </div>
   );
 }

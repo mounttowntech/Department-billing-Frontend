@@ -43,7 +43,6 @@
   overflow-x: hidden;
 }
 
-
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -91,10 +90,6 @@
   transform: translateY(-1px);
 }
 
-.primary-btn:active {
-  transform: translateY(0);
-}
-
 .barcode-toolbar {
   background: white;
   padding: 15px;
@@ -139,6 +134,8 @@
 }
 
 .barcode-filter-select {
+  flex: 1;
+  min-width: 140px;
   padding: 10px 14px;
   border-radius: 10px;
   border: 1.5px solid var(--bp-border);
@@ -174,13 +171,6 @@
   border-radius: 16px;
   border: 1px solid var(--bp-border);
   box-shadow: 0 1px 3px rgba(30, 27, 58, 0.04);
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
-  min-width: 0;
-}
-
-.barcode-summary-card:hover {
-  box-shadow: 0 8px 20px rgba(30, 27, 58, 0.08);
-  transform: translateY(-2px);
 }
 
 .barcode-summary-icon {
@@ -194,40 +184,22 @@
   flex-shrink: 0;
 }
 
-.card-blue .barcode-summary-icon {
-  background: var(--bp-blue-bg);
-  color: var(--bp-blue);
-}
-
-.card-green .barcode-summary-icon {
-  background: var(--bp-green-bg);
-  color: var(--bp-green);
-}
-
-.card-red .barcode-summary-icon {
-  background: var(--bp-red-bg);
-  color: var(--bp-red);
-}
+.card-blue .barcode-summary-icon { background: var(--bp-blue-bg); color: var(--bp-blue); }
+.card-green .barcode-summary-icon { background: var(--bp-green-bg); color: var(--bp-green); }
+.card-red .barcode-summary-icon { background: var(--bp-red-bg); color: var(--bp-red); }
 
 .barcode-summary-card h2 {
   margin: 0 0 4px;
   font-size: 26px;
   font-weight: 700;
   color: var(--bp-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .barcode-summary-card p {
   color: var(--bp-muted);
   margin: 0;
   font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-
 
 .table-card {
   background: white;
@@ -236,7 +208,6 @@
   border: 1px solid var(--bp-border);
   box-shadow: 0 1px 3px rgba(30, 27, 58, 0.04);
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .barcode-table {
@@ -251,7 +222,6 @@
   font-weight: 600;
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   padding: 14px 16px;
   text-align: left;
   white-space: nowrap;
@@ -265,29 +235,16 @@
   vertical-align: middle;
 }
 
-.barcode-table tr:last-child td {
-  border-bottom: none;
-}
-
-.barcode-table tbody tr:hover {
-  background: var(--bp-bg);
-}
-
 .barcode-info {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 0;
 }
 
 .barcode-info strong {
   font-weight: 600;
   color: var(--bp-ink);
   font-family: "SFMono-Regular", Consolas, monospace;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .barcode-avatar {
@@ -302,7 +259,6 @@
   flex-shrink: 0;
 }
 
-
 .badge {
   padding: 5px 12px;
   border-radius: 20px;
@@ -310,99 +266,42 @@
   font-weight: 600;
   text-transform: capitalize;
   display: inline-block;
-  white-space: nowrap;
 }
 
-.badge.active {
-  background: var(--bp-green-bg);
-  color: var(--bp-green);
-}
-
-.badge.inactive {
-  background: var(--bp-red-bg);
-  color: var(--bp-red);
-}
-
+.badge.active { background: var(--bp-green-bg); color: var(--bp-green); }
+.badge.inactive { background: var(--bp-red-bg); color: var(--bp-red); }
 
 .action-btns {
   display: flex;
   gap: 10px;
 }
 
-.edit-btn,
-.activate-btn,
-.deactivate-btn,
-.delete-btn {
+.edit-btn, .activate-btn, .deactivate-btn, .delete-btn {
   width: 38px;
   height: 38px;
-  min-width: 38px;
   border: none;
   border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 2px rgba(30, 27, 58, 0.06);
-  transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-  flex-shrink: 0;
 }
 
-.edit-btn:hover,
-.activate-btn:hover,
-.deactivate-btn:hover,
-.delete-btn:hover {
-  filter: brightness(0.95);
-  transform: translateY(-1px);
-}
-
-.edit-btn:active,
-.activate-btn:active,
-.deactivate-btn:active,
-.delete-btn:active {
-  transform: translateY(0);
-}
-
-.edit-btn {
-  background: var(--bp-blue-bg);
-  color: var(--bp-blue);
-}
-
-.activate-btn {
-  background: var(--bp-green-bg);
-  color: var(--bp-green);
-}
-
-.deactivate-btn {
-  background: var(--bp-amber-bg);
-  color: var(--bp-amber);
-}
-
-.delete-btn {
-  background: var(--bp-red-bg);
-  color: var(--bp-red);
-}
-
-.edit-btn:disabled,
-.activate-btn:disabled,
-.deactivate-btn:disabled,
-.delete-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
+.edit-btn { background: var(--bp-blue-bg); color: var(--bp-blue); }
+.activate-btn { background: var(--bp-green-bg); color: var(--bp-green); }
+.deactivate-btn { background: var(--bp-amber-bg); color: var(--bp-amber); }
+.delete-btn { background: var(--bp-red-bg); color: var(--bp-red); }
 
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(30, 27, 58, 0.5);
-  -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 2000;
   padding: 16px;
-  box-sizing: border-box;
 }
 
 .barcode-modal {
@@ -412,12 +311,11 @@
   max-height: 90vh;
   background: white;
   border-radius: 18px;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(30, 27, 58, 0.3);
+  overflow: hidden;
 }
-
 
 .modal-header {
   display: flex;
@@ -426,13 +324,6 @@
   padding: 20px 26px;
   background: linear-gradient(135deg, var(--bp-primary), var(--bp-primary-dark));
   color: white;
-  flex-shrink: 0;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
 }
 
 .modal-subtitle {
@@ -453,30 +344,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease;
-  flex-shrink: 0;
 }
-
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.28);
-}
-
 
 .modal-body {
   padding: 26px;
   overflow-y: auto;
-  flex: 1 1 auto;
-  min-height: 0;
-  -webkit-overflow-scrolling: touch;
-}
-
-.modal-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.modal-body::-webkit-scrollbar-thumb {
-  background: var(--bp-border);
-  border-radius: 20px;
+  flex: 1;
 }
 
 .section-title {
@@ -486,7 +359,6 @@
   font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
   border-bottom: 1px solid var(--bp-border);
   padding-bottom: 9px;
 }
@@ -501,7 +373,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 0;
 }
 
 .form-group label {
@@ -510,14 +381,11 @@
   color: var(--bp-ink);
 }
 
-.required {
-  color: var(--bp-red);
-}
+.required { color: var(--bp-red); }
 
 .form-group input,
 .form-group select {
   width: 100%;
-  box-sizing: border-box;
   padding: 11px 13px;
   border: 1.5px solid var(--bp-border);
   border-radius: 9px;
@@ -525,11 +393,6 @@
   font-size: 14px;
   color: var(--bp-ink);
   background: white;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.form-group input::placeholder {
-  color: #a3a5b8;
 }
 
 .form-group input:focus,
@@ -538,6 +401,12 @@
   box-shadow: 0 0 0 3px var(--bp-primary-light);
 }
 
+.form-group select:disabled,
+.form-group input:disabled {
+  background: var(--bp-bg);
+  cursor: not-allowed;
+  color: var(--bp-muted);
+}
 
 .barcode-generated-group {
   grid-column: span 1;
@@ -553,38 +422,29 @@
   color: var(--bp-green);
   font-size: 10px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .barcode-input-wrapper {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  box-sizing: border-box;
   padding: 0 12px;
   border: 1.5px solid #c7d2fe;
   border-radius: 9px;
   background: #f8f9ff;
   color: var(--bp-primary);
   min-height: 43px;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.04);
 }
 
 .barcode-input-wrapper input {
   flex: 1;
-  width: auto;
   border: none;
   outline: none;
-  padding: 11px 0;
   background: transparent;
   color: var(--bp-primary-dark);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  box-shadow: none !important;
   cursor: not-allowed;
 }
 
@@ -599,13 +459,11 @@
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
-  flex-shrink: 0;
 }
 
 .field-help {
   color: var(--bp-muted);
   font-size: 11px;
-  line-height: 1.4;
 }
 
 .modal-footer {
@@ -615,7 +473,6 @@
   padding: 18px 26px;
   border-top: 1px solid var(--bp-border);
   background: var(--bp-bg);
-  flex-shrink: 0;
 }
 
 .cancel-btn {
@@ -627,11 +484,6 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  transition: background 0.15s ease;
-}
-
-.cancel-btn:hover {
-  background: var(--bp-bg);
 }
 
 .save-btn {
@@ -645,48 +497,19 @@
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
-  transition: background 0.15s ease;
 }
-
-.save-btn:hover:not(:disabled) {
-  background: var(--bp-primary-dark);
-}
-
-.save-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 
 .empty-row {
   text-align: center;
   padding: 34px;
   color: var(--bp-muted);
-  font-size: 14px;
 }
 
-
-.primary-btn:focus-visible,
-.edit-btn:focus-visible,
-.activate-btn:focus-visible,
-.deactivate-btn:focus-visible,
-.delete-btn:focus-visible,
-.cancel-btn:focus-visible,
-.save-btn:focus-visible,
-.barcode-filter-select:focus-visible,
-.close-btn:focus-visible {
-  outline: 2px solid var(--bp-primary);
-  outline-offset: 2px;
-}
-
-
+/* Responsive Media Queries */
 @media (max-width: 1200px) {
   .barcode-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
   }
 }
 
@@ -694,78 +517,38 @@
   .barcode-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-
-@media (max-width: 768px) {
-  .barcode-content {
-    padding: 16px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .page-header .primary-btn {
-    width: 100%;
-  }
-
-  .barcode-summary-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .barcode-modal {
-    width: 100%;
-    height: 94vh;
-    max-height: 94vh;
-    border-radius: 14px;
-  }
-
-  .modal-overlay {
-    padding: 8px;
-  }
-
-  .modal-body {
-    padding: 16px;
-  }
-
-  .barcode-search-box {
-    max-width: 100%;
-    width: 100%;
-  }
-
   .barcode-toolbar {
     flex-direction: column;
     align-items: stretch;
   }
-
+  .barcode-search-box {
+    max-width: 100%;
+  }
   .barcode-filter-select {
-    width: 100%;
-  }
-
-  .modal-footer {
-    padding: 14px 16px;
-    flex-direction: column-reverse;
-  }
-
-  .modal-footer button {
     width: 100%;
   }
 }
 
-@media (max-width: 480px) {
-  .page-header h2 {
-    font-size: 20px;
+@media (max-width: 768px) {
+  .barcode-content {
+    padding: 12px;
   }
-  .modal-header {
-    padding: 16px;
+  .barcode-summary-grid {
+    grid-template-columns: 1fr;
   }
-  .modal-header h3 {
-    font-size: 15px;
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .barcode-modal {
+    width: 100%;
+    height: 96vh;
+    max-height: 96vh;
+    border-radius: 12px;
+  }
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+  .modal-footer button {
+    width: 100%;
   }
 }

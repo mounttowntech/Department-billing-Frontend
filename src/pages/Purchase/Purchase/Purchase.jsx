@@ -27,7 +27,6 @@ import { getStores } from "../../../services/storeService";
 import { getWarehouses } from "../../../services/warehouseService";
 import { getProducts } from "../../../services/productService";
 import { getVariants } from "../../../services/productVariantService";
-
 import { getSuppliers } from "../../../services/supplierService";
 
 const PURCHASE_STATUSES = ["Pending", "Received", "Cancelled"];
@@ -63,10 +62,17 @@ const emptyPurchase = {
 export default function Purchase() {
   const [purchases, setPurchases] = useState([]);
   const [stores, setStores] = useState([]);
-  const [warehouses, setWarehouses] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [variants, setVariants] = useState([]);
+  
+  // Toolbar dropdown lists
+  const [toolbarSuppliers, setToolbarSuppliers] = useState([]);
+  const [toolbarWarehouses, setToolbarWarehouses] = useState([]);
+  const [toolbarProducts, setToolbarProducts] = useState([]);
+
+  // Modal form dependent lists
+  const [formSuppliers, setFormSuppliers] = useState([]);
+  const [formWarehouses, setFormWarehouses] = useState([]);
+  const [formProducts, setFormProducts] = useState([]);
+  const [formVariants, setFormVariants] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -76,6 +82,7 @@ export default function Purchase() {
 
   const [search, setSearch] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [purchaseStatusFilter, setPurchaseStatusFilter] = useState("");
@@ -91,6 +98,7 @@ export default function Purchase() {
 
       const res = await getPurchases({
         store: storeFilter || undefined,
+        warehouse: warehouseFilter || undefined,
         supplier: supplierFilter || undefined,
         paymentStatus: paymentStatusFilter || undefined,
         purchaseStatus: purchaseStatusFilter || undefined,
@@ -122,29 +130,73 @@ export default function Purchase() {
     }
   };
 
-  const fetchDropdownData = async () => {
+  const fetchGlobalData = async () => {
     try {
-      const [productRes, variantRes] = await Promise.all([
-        getProducts(),
-        getVariants(),
-      ]);
-      if (productRes.data.success) setProducts(productRes.data.data || []);
-      if (variantRes.data.success) setVariants(variantRes.data.data || []);
-      const [storeRes, warehouseRes, supplierRes] = await Promise.all([
-        getStores(),
-        getWarehouses(),
-        getSuppliers(),
-      ]);
+      const storeRes = await getStores();
       if (storeRes.success) setStores(storeRes.data || []);
-      if (warehouseRes.success) setWarehouses(warehouseRes.data || []);
-      if (supplierRes.success) setSuppliers(supplierRes.data || []);
+
+      const supRes = await getSuppliers();
+      setToolbarSuppliers(supRes?.data || supRes || []);
+
+      const whRes = await getWarehouses();
+      setToolbarWarehouses(whRes?.data || whRes?.data?.data || []);
+
+      const prodRes = await getProducts();
+      setToolbarProducts(prodRes?.data?.data || prodRes?.data || []);
     } catch (err) {
       console.log(err);
     }
   };
 
+  // Fetch store-dependent lists for the purchase modal form
+  const fetchStoreDependentData = async (storeId) => {
+    if (!storeId) {
+      setFormSuppliers([]);
+      setFormWarehouses([]);
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const [suppRes, whRes] = await Promise.all([
+        getSuppliers({ store: storeId }),
+        getWarehouses({ store: storeId }),
+      ]);
+
+      setFormSuppliers(suppRes?.data || suppRes || []);
+      setFormWarehouses(whRes?.data || whRes?.data?.data || []);
+      setFormProducts([]);
+      setFormVariants([]);
+    } catch (err) {
+      console.log("Failed to load store dependent data:", err);
+    }
+  };
+
+  // Fetch warehouse-dependent products and variants inside the modal form
+  const fetchWarehouseDependentProducts = async (storeId, warehouseId) => {
+    if (!storeId || !warehouseId) {
+      setFormProducts([]);
+      setFormVariants([]);
+      return;
+    }
+
+    try {
+      const params = { store: storeId, warehouse: warehouseId };
+      const [prodRes, varRes] = await Promise.all([
+        getProducts(params),
+        getVariants(params),
+      ]);
+
+      setFormProducts(prodRes?.data?.data || prodRes?.data || []);
+      setFormVariants(varRes?.data?.data || varRes?.data || []);
+    } catch (err) {
+      console.log("Failed to load warehouse dependent products:", err);
+    }
+  };
+
   useEffect(() => {
-    fetchDropdownData();
+    fetchGlobalData();
     fetchSummaryCounts();
   }, []);
 
@@ -153,8 +205,7 @@ export default function Purchase() {
       fetchPurchases();
     }, 300);
     return () => clearTimeout(timer);
-   
-  }, [storeFilter, supplierFilter, paymentStatusFilter, purchaseStatusFilter]);
+  }, [storeFilter, warehouseFilter, supplierFilter, paymentStatusFilter, purchaseStatusFilter]);
 
   const filteredPurchases = useMemo(() => {
     if (!search.trim()) return purchases;
@@ -173,7 +224,6 @@ export default function Purchase() {
     0
   );
 
- 
   const updateItem = (index, key, value) => {
     setItems((prev) =>
       prev.map((item, i) => (i === index ? { ...item, [key]: value } : item))
@@ -181,7 +231,7 @@ export default function Purchase() {
   };
 
   const handleItemProductChange = (index, productId) => {
-    const product = products.find((p) => p._id === productId);
+    const product = formProducts.find((p) => p._id === productId);
     setItems((prev) =>
       prev.map((item, i) =>
         i === index
@@ -202,7 +252,7 @@ export default function Purchase() {
   };
 
   const handleItemVariantChange = (index, variantId) => {
-    const variant = variants.find((v) => v._id === variantId);
+    const variant = formVariants.find((v) => v._id === variantId);
     setItems((prev) =>
       prev.map((item, i) =>
         i === index
@@ -221,7 +271,7 @@ export default function Purchase() {
   };
 
   const variantsForItemProduct = (productId) =>
-    variants.filter((v) => (v.product?._id || v.product) === productId);
+    formVariants.filter((v) => (v.product?._id || v.product) === productId);
 
   const addItemRow = () => setItems((prev) => [...prev, emptyItem()]);
 
@@ -265,27 +315,65 @@ export default function Purchase() {
       dueAmount: dueAmount.toFixed(2),
       paymentStatus,
     };
-  }, [items, formData.transportCharge, formData.otherCharges, formData.discountAmount, formData.paidAmount]);
+  }, [
+    items,
+    formData.transportCharge,
+    formData.otherCharges,
+    formData.discountAmount,
+    formData.paidAmount,
+  ]);
 
-  const updateField = (key, value) => {
+  const updateField = async (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+
+    if (key === "store") {
+      await fetchStoreDependentData(value);
+      setFormData((prev) => ({
+        ...prev,
+        supplier: "",
+        warehouse: "",
+      }));
+      setItems([emptyItem()]);
+    }
+
+    if (key === "warehouse") {
+      await fetchWarehouseDependentProducts(formData.store, value);
+      setFormData((prev) => ({
+        ...prev,
+      }));
+      setItems([emptyItem()]);
+    }
   };
 
   const openAddModal = () => {
     setEditingId(null);
     setFormData(emptyPurchase);
     setItems([emptyItem()]);
+    setFormSuppliers([]);
+    setFormWarehouses([]);
+    setFormProducts([]);
+    setFormVariants([]);
     setShowModal(true);
   };
 
-  const openEditModal = (purchase) => {
+  const openEditModal = async (purchase) => {
     setEditingId(purchase._id);
+    const storeId = purchase.store?._id || purchase.store || "";
+    const whId = purchase.warehouse?._id || purchase.warehouse || "";
+
+    if (storeId) {
+      await fetchStoreDependentData(storeId);
+      if (whId) {
+        await fetchWarehouseDependentProducts(storeId, whId);
+      }
+    }
+
     setFormData({
       purchaseNo: purchase.purchaseNo || "",
       invoiceNumber: purchase.invoiceNumber || "",
       supplier: purchase.supplier?._id || purchase.supplier || "",
-      store: purchase.store?._id || purchase.store || "",
-      warehouse: purchase.warehouse?._id || purchase.warehouse || "",
+      store: storeId,
+      warehouse: whId,
       purchaseDate: purchase.purchaseDate
         ? purchase.purchaseDate.slice(0, 10)
         : new Date().toISOString().slice(0, 10),
@@ -320,15 +408,15 @@ export default function Purchase() {
     setEditingId(null);
     setFormData(emptyPurchase);
     setItems([emptyItem()]);
+    setFormSuppliers([]);
+    setFormWarehouses([]);
+    setFormProducts([]);
+    setFormVariants([]);
   };
 
   const handleSubmit = async () => {
-    if (
-  !formData.supplier ||
-  !formData.store ||
-  !formData.warehouse
-) { 
-      alert("Purchase No, Supplier, Store and Warehouse are required.");
+    if (!formData.supplier || !formData.store || !formData.warehouse) {
+      alert("Supplier, Store and Warehouse are required.");
       return;
     }
 
@@ -361,9 +449,7 @@ export default function Purchase() {
   };
 
   const handleDelete = async (id) => {
-    if (
-      !window.confirm("Permanently delete this purchase? This cannot be undone.")
-    )
+    if (!window.confirm("Permanently delete this purchase? This cannot be undone."))
       return;
 
     try {
@@ -379,11 +465,10 @@ export default function Purchase() {
   return (
     <div className="purchase-page">
       <div className="purchase-content">
-
         <div className="page-header">
           <div>
             <h2>Purchases</h2>
-            <p>Record stock received from suppliers.</p>
+            <p>Record stock received from store-wise suppliers.</p>
           </div>
 
           <button className="primary-btn" onClick={openAddModal}>
@@ -392,7 +477,6 @@ export default function Purchase() {
           </button>
         </div>
 
-    
         <div className="purchase-toolbar">
           <div className="purchase-search-box">
             <Search size={18} />
@@ -405,9 +489,12 @@ export default function Purchase() {
           </div>
 
           <select
-            className="purchase-filter-select "
+            className="purchase-filter-select"
             value={storeFilter}
-            onChange={(e) => setStoreFilter(e.target.value)}
+            onChange={(e) => {
+              setStoreFilter(e.target.value);
+              setWarehouseFilter("");
+            }}
           >
             <option value="">All Stores</option>
             {stores.map((s) => (
@@ -418,12 +505,30 @@ export default function Purchase() {
           </select>
 
           <select
-            className="purchase-filter-select "
+            className="purchase-filter-select"
+            value={warehouseFilter}
+            onChange={(e) => setWarehouseFilter(e.target.value)}
+            disabled={!storeFilter}
+          >
+            <option value="">
+              {storeFilter ? "All Warehouses" : "Select a store first"}
+            </option>
+            {toolbarWarehouses
+              .filter((w) => String(w.store?._id || w.store) === String(storeFilter))
+              .map((w) => (
+                <option key={w._id} value={w._id}>
+                  {w.warehouseName}
+                </option>
+              ))}
+          </select>
+
+          <select
+            className="purchase-filter-select"
             value={supplierFilter}
             onChange={(e) => setSupplierFilter(e.target.value)}
           >
             <option value="">All Suppliers</option>
-            {suppliers.map((s) => (
+            {toolbarSuppliers.map((s) => (
               <option key={s._id} value={s._id}>
                 {s.supplierName}
               </option>
@@ -431,7 +536,7 @@ export default function Purchase() {
           </select>
 
           <select
-            className="purchase-filter-select "
+            className="purchase-filter-select"
             value={purchaseStatusFilter}
             onChange={(e) => setPurchaseStatusFilter(e.target.value)}
           >
@@ -444,7 +549,7 @@ export default function Purchase() {
           </select>
 
           <select
-            className="purchase-filter-select "
+            className="purchase-filter-select"
             value={paymentStatusFilter}
             onChange={(e) => setPaymentStatusFilter(e.target.value)}
           >
@@ -455,38 +560,45 @@ export default function Purchase() {
           </select>
         </div>
 
-      
         <div className="purchase-summary-grid">
           <div className="purchase-summary-card card-blue">
             <div className="purchase-summary-icon">
               <ClipboardList size={22} />
             </div>
-            <h2>{totalPurchases}</h2>
-            <p>Total Purchases</p>
+            <div>
+              <h2>{totalPurchases}</h2>
+              <p>Total Purchases</p>
+            </div>
           </div>
 
           <div className="purchase-summary-card card-green">
             <div className="purchase-summary-icon">
               <Clock size={22} />
             </div>
-            <h2>{todayCount}</h2>
-            <p>Today's Purchases</p>
+            <div>
+              <h2>{todayCount}</h2>
+              <p>Today's Purchases</p>
+            </div>
           </div>
 
           <div className="purchase-summary-card card-amber">
             <div className="purchase-summary-icon">
               <AlertCircle size={22} />
             </div>
-            <h2>{pendingCount}</h2>
-            <p>Pending Payment</p>
+            <div>
+              <h2>{pendingCount}</h2>
+              <p>Pending Payment</p>
+            </div>
           </div>
 
           <div className="purchase-summary-card card-purple">
             <div className="purchase-summary-icon">
               <IndianRupee size={22} />
             </div>
-            <h2>₹{totalValue.toLocaleString("en-IN")}</h2>
-            <p>Total Purchase Value</p>
+            <div>
+              <h2>₹{totalValue.toLocaleString("en-IN")}</h2>
+              <p>Total Purchase Value</p>
+            </div>
           </div>
         </div>
 
@@ -534,9 +646,7 @@ export default function Purchase() {
                     </td>
 
                     <td>{purchase.supplier?.supplierName || "—"}</td>
-
                     <td>{purchase.warehouse?.warehouseName || "—"}</td>
-
                     <td>{purchase.totalItems ?? purchase.items?.length ?? 0}</td>
 
                     <td>
@@ -583,7 +693,7 @@ export default function Purchase() {
 
         {showModal && (
           <div className="modal-overlay">
-            <div className="purchase-modal">
+            <div className="purchase-modal medium-modal">
               <div className="modal-header">
                 <h3>{editingId ? "Edit Purchase" : "New Purchase"}</h3>
                 <button className="close-btn" onClick={closeModal}>
@@ -596,14 +706,8 @@ export default function Purchase() {
 
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>
-  Purchase Number
-</label>
-
-<input
-  value={formData.purchaseNo || "Auto Generated"}
-  disabled
-/>
+                    <label>Purchase Number</label>
+                    <input value={formData.purchaseNo || "Auto Generated"} disabled />
                   </div>
 
                   <div className="form-group">
@@ -628,23 +732,6 @@ export default function Purchase() {
                   </div>
 
                   <div className="form-group">
-                    <label>Supplier *</label>
-                    <select
-                      value={formData.supplier}
-                      onChange={(e) =>
-                        updateField("supplier", e.target.value)
-                      }
-                    >
-                      <option value="">Select Supplier</option>
-                      {suppliers.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.supplierName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
                     <label>Store *</label>
                     <select
                       value={formData.store}
@@ -663,14 +750,37 @@ export default function Purchase() {
                     <label>Warehouse *</label>
                     <select
                       value={formData.warehouse}
+                      disabled={!formData.store}
                       onChange={(e) =>
                         updateField("warehouse", e.target.value)
                       }
                     >
-                      <option value="">Select Warehouse</option>
-                      {warehouses.map((w) => (
+                      <option value="">
+                        {formData.store ? "Select Warehouse" : "Select a store first"}
+                      </option>
+                      {formWarehouses.map((w) => (
                         <option key={w._id} value={w._id}>
                           {w.warehouseName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Supplier *</label>
+                    <select
+                      value={formData.supplier}
+                      disabled={!formData.store}
+                      onChange={(e) =>
+                        updateField("supplier", e.target.value)
+                      }
+                    >
+                      <option value="">
+                        {formData.store ? "Select Supplier" : "Select a store first"}
+                      </option>
+                      {formSuppliers.map((s) => (
+                        <option key={s._id} value={s._id}>
+                          {s.supplierName}
                         </option>
                       ))}
                     </select>
@@ -732,12 +842,19 @@ export default function Purchase() {
                             <td>
                               <select
                                 value={item.product}
+                                disabled={!formData.warehouse}
                                 onChange={(e) =>
                                   handleItemProductChange(index, e.target.value)
                                 }
                               >
-                                <option value="">Select Product</option>
-                                {products.map((p) => (
+                                <option value="">
+                                  {!formData.store
+                                    ? "Select a store first"
+                                    : !formData.warehouse
+                                    ? "Select a warehouse first"
+                                    : "Select Product"}
+                                </option>
+                                {formProducts.map((p) => (
                                   <option key={p._id} value={p._id}>
                                     {p.productName}
                                   </option>
@@ -748,10 +865,10 @@ export default function Purchase() {
                             <td>
                               <select
                                 value={item.variant}
+                                disabled={!item.product}
                                 onChange={(e) =>
                                   handleItemVariantChange(index, e.target.value)
                                 }
-                                disabled={!item.product}
                               >
                                 <option value="">
                                   {item.product ? "Select Variant" : "Pick a product first"}
@@ -833,7 +950,7 @@ export default function Purchase() {
                   </table>
                 </div>
 
-                <button type="button" className="add-item-btn" onClick={addItemRow}>
+                <button type="button" className="add-item-btn" onClick={addItemRow} disabled={!formData.warehouse}>
                   <Plus size={14} /> Add Item
                 </button>
 
